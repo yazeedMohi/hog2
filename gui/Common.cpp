@@ -225,10 +225,12 @@ void ProcessCommandLineArgs(int argc, char *argv[])
 //	for (int x = 0; x < argc; x++)
 //	{
 //		printf("%s ", argv[x]);
+//        printf("\n");
+//        printf("\n");
 //	}
 //	printf("\n");
-	//initializeCommandLineHandlers();
-	// printCommandLineArguments();
+//	initializeCommandLineHandlers();
+//	 printCommandLineArguments();
 
 	int lastval = 1;
 	for (int y = 1; y < argc; )

@@ -1,0 +1,11 @@
+type triangle
+height 6
+width  11
+map
+Constraint: NotTouch 2 3 8
+xxff70000xx
+xff77dd00jx
+gff77dddbjj
+ggii7edbbbb
+xggieecccbx
+xxgeeecccxx

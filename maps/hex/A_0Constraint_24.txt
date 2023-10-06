@@ -1,0 +1,11 @@
+type triangle
+height 6
+width  11
+map
+Constraint: NoFlip 0 4 6
+xxdddjjjfxx
+xdddfffffhx
+ccc44aaaahh
+cccb444aahh
+xbbbb4888hx
+xxbggggggxx

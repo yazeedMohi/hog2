@@ -1,0 +1,10 @@
+type triangle
+height 6
+width  11
+map
+xxjj1aaaaxx
+x8j1111aaex
+88ccc1eeeee
+hhcccddddgg
+xhhhhdfdggx
+xxfffffggxx

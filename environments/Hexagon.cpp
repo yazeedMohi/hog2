@@ -8,53 +8,152 @@
 
 #include "Hexagon.h"
 #include <ctype.h>
+#include <string>
+#include <map>
+#include<cmath>
+#include <thread>
+#include <cstdlib>
+
 
 #pragma mark -
 #pragma mark Efficient Hexagon Search Code
 #pragma mark -
 
+constexpr uint64_t bits(uint64_t a, uint64_t b)
+{
+//    const uint64_t one = 1;
+    return ((((uint64_t)1)<<a)|(((uint64_t)1)<<b));
+}
+
+constexpr uint64_t bits(uint64_t a, uint64_t b, uint64_t c, uint64_t d)
+{
+//    const uint64_t one = 1;
+    return ((((uint64_t)1)<<a)|(((uint64_t)1)<<b)|(((uint64_t)1)<<c)|(((uint64_t)1)<<d));
+}
+
 constexpr uint64_t bits(uint64_t a, uint64_t b, uint64_t c)
 {
-//	const uint64_t one = 1;
-	return ((((uint64_t)1)<<a)|(((uint64_t)1)<<b)|(((uint64_t)1)<<c));
+//    const uint64_t one = 1;
+    return ((((uint64_t)1)<<a)|(((uint64_t)1)<<b)|(((uint64_t)1)<<c));
 }
 
 constexpr uint64_t bits(uint64_t a, uint64_t b, uint64_t c, uint64_t d, uint64_t e, uint64_t f)
 {
-	return bits(a, b, c)|bits(d, e, f);
+    return bits(a, b, c)|bits(d, e, f);
 }
 
+//(1, 2, 3, 9, 10, 11)
 const int rotateCWTable[54] =
 {5,6,14,15,25,26,37,3,4,12,13,23,24,35,36,46,1,2,10,11,21,22,33,34,44,45,53,0,8,9,19,20,31,32,42,43,51,52,7,17,18,29,30,40,41,49,50,16,27,28,38,39,47,48};
 
 const int flipTable[54] =
 {47,48,49,50,51,52,53,38,39,40,41,42,43,44,45,46,27,28,29,30,31,32,33,34,35,36,37,16,17,18,19,20,21,22,23,24,25,26,7,8,9,10,11,12,13,14,15,0,1,2,3,4,5,6};
+// 49,39,40,41,42,30
+const int mapPiece[numPieces] = {2, 1, 7, 6, 3, 5, 4, 0, 8, 9};//TODOX 8, 8/i 9/j
 
-const int noFlipMoveCount[numPieces] =
+
+int noFlipMoveCount[numPieces] =
 {
-//	kHexagon = 0,
+//	kHexagon = 0, 2/c
 	4, // no flip symmetry
-//	kButterfly = 1,
+//	kButterfly = 1, 1/b
 	42, // no flip symmetry
-//	kElbow = 2,
+//	kElbow = 2, 7/h
 	72, // no symmetry
-//	kLine = 3,
+//	kLine = 3, 6/g
 	72/2,
-//	kMountains = 4,
+//	kMountains = 4, 3/d
 	156/2,
-//	kWrench = 5,
+//	kWrench = 5, 5/f
 	156/2,
-//	kTriangle = 6,
+//	kTriangle = 6, 4/e
 	144/2,
-//	kHook = 7,
+//	kHook = 7, 0/a
 	168/2,
-//	kTrapezoid = 8,
+//	kTrapezoid = 8, 8/i 9/j
 	126,
 //	kSnake = 9
 	72/2
 };
 
-const uint64_t locations[numPieces][14*6*2+1] =
+uint64_t locations[numPieces][192+1];//TODOX fix this
+uint64_t localized_holes[numPieces][192+1][12+1];
+
+uint64_t localized_holes_side1_odd[numPieces][192+1][12+1];
+uint64_t localized_holes_side1_even[numPieces][192+1][12+1];
+uint64_t localized_holes_side2_odd[numPieces][192+1][12+1];
+uint64_t localized_holes_side2_even[numPieces][192+1][12+1];
+
+const uint64_t hole_locations_orig[numPieces][3] = // 0 1
+{
+    {
+        0, // kHexagon count
+        bits(0, 2, 9),//bits(0, 1, 2, 8, 9, 10)
+        bits(1, 8, 10),//bits(0, 1, 2, 8, 9, 10)
+
+    },
+    {
+        1, // kButterfly count
+        bits(1, 3, 10),//bits(1, 2, 3, 9, 10, 11)
+        bits(2, 9, 11),//bits(1, 2, 3, 9, 10, 11)
+    },
+    { // elbow piece
+        1, // kElbow count
+        bits(0, 2, 7),//bits(0, 1, 2, 3, 7, 8)
+        bits(1, 3, 8),//bits(0, 1, 2, 3, 7, 8)
+    },
+    { // long parallelogram - symmetric left to right
+        1,
+        bits(0, 2, 4),//bits(0, 1, 2, 3, 4, 5)
+        bits(1, 3, 5),//bits(0, 1, 2, 3, 4, 5)
+
+//        bits(1, 2, 3, 4, 5, 6)//bits(1, 2, 3, 4, 5, 6)
+    },
+    { // kMountain
+        1,
+        bits(0, 2, 7, 9),//bits(0, 1, 2, 7, 8, 9)
+        bits(1, 8),//bits(0, 1, 2, 7, 8, 9)
+
+//        bits(1, 2, 3, 10, 11, 12),//bits(1, 2, 3, 10, 11, 12)
+    },
+    { // long piece a bit like the elbow but asymmetric
+        1, // kWrench count
+        bits(0, 1, 2, 3, 4, 8),//bits(0, 1, 2, 3, 4, 8)
+        bits(0, 1, 2, 3, 4, 8),//bits(0, 1, 2, 3, 4, 8)
+
+//        bits(0, 8, 9, 10, 11, 12),//bits(0, 8, 9, 10, 11, 12)
+    },
+    { // triangle piece
+        1, // kTriangle count
+        bits(1, 3, 10),//bits(1, 2, 3, 4, 5, 10)
+        bits(2, 4, 5),//bits(1, 2, 3, 4, 5, 10)
+
+//        bits(0, 7, 8, 9, 10, 11),//bits(0, 7, 8, 9, 10, 11)
+    },
+    {
+        1, // kHook count
+        bits(0, 9, 11),//bits(0, 1, 8, 9, 10, 11)
+        bits(1, 8, 10),//bits(0, 1, 8, 9, 10, 11)
+
+//        bits(0, 1, 2, 3, 8, 9),//bits(0, 1, 2, 3, 8, 9)
+    },
+    { // small trapezoids -- symmetric left/right
+        1,
+        bits(0, 2),//bits(0, 1, 2)
+        2, // bits(1),//bits(0, 1, 2)
+        
+//        bits(1, 2, 3),//bits(0, 1, 2)
+    },
+    {
+        1, // kSnake
+        bits(0, 2, 11), //bits(0, 1, 2, 10, 11, 12)
+        bits(1, 10, 12), //bits(0, 1, 2, 10, 11, 12)
+
+//        bits(2, 3, 4, 8, 9, 10), //bits(2, 3, 4, 8, 9, 10)
+    }
+};
+
+const uint64_t locations_orig[numPieces][14*6*2+1] =
 { // pieces
 	{ // hexagon piece - symmetric in all ways
 //		4, // count
@@ -73,7 +172,7 @@ const uint64_t locations[numPieces][14*6*2+1] =
 //		19, // count
 //		bits(0, 1, 2, 8, 9, 10), bits(2, 3, 4, 10, 11, 12), bits(4, 5, 6, 12, 13, 14),
 //		bits(7, 8, 9, 17, 18, 19), bits(9, 10, 11, 19, 20, 21), bits(11, 12, 13, 21, 22, 23), bits(13, 14, 15, 23, 24, 25),
-//		bits(16, 17, 18, 27, 28, 29), bits(18, 19, 20, 29, 30, 31), bits(20, 21, 22, 31, 32, 33), bits(22, 23, 24, 33, 34, 35), bits(24, 25, 26, 35, 36, 37),
+//		bits(16, 17, 18, 27, 28, 29), bits(18, 19, 20, 29, 30, 31), bits(20, 21, 22, 31, 32, 33), bits(22, 23, 24, 33, 34, 35), bits(24, 25, 26, 35, 36, 37l),
 //		bits(28, 29, 30, 38, 39, 40), bits(30, 31, 32, 40, 41, 42), bits(32, 33, 34, 42, 43, 44), bits(34, 35, 36, 44, 45, 46),
 //		bits(39, 40, 41, 47, 48, 49), bits(41, 42, 43, 49, 50, 51), bits(43, 44, 45, 51, 52, 53)
 	},
@@ -577,8 +676,14 @@ HexagonEnvironment::HexagonEnvironment()
 //	pieces = {0, 1, 2, 3, 4, 5, 6, 7, 8, 8};
 //	pieces = {0, 1, 2, 3, 4, 5, 6, 7, 9};
 //	pieces = {9, 0, 1, 2, 3, 4, 5, 6, 7};
+    BuildLocationTable();
+    std::cout << "-< Built location table >-\n\n";
+    BuildHolesTable();
+    std::cout << "-< Built holes table >-\n\n";
 	BuildFlipTable();
+    std::cout << "-< Built flip table >-\n\n";
 	BuildRotationTable();
+    std::cout << "-< Built Rotation table >-\n\n";
 }
 
 void HexagonEnvironment::SetPieces(const std::vector<tPieceName> &pieces)
@@ -586,6 +691,10 @@ void HexagonEnvironment::SetPieces(const std::vector<tPieceName> &pieces)
 	this->pieces.resize(0);
 	for (int x = 0; x < pieces.size(); x++)
 		this->pieces.push_back((int)pieces[x]);
+}
+
+std::vector<int> HexagonEnvironment::GetPieces(){
+    return this->pieces;
 }
 
 void HexagonEnvironment::SetFlippable(const std::array<tFlipType, numPieces> &flips)
@@ -628,8 +737,19 @@ void HexagonEnvironment::BuildRotationTable()
 			{
 				if (locations[x][z] == rot_loc)
 				{
+//                    if(rotate30Map[x][y] == 180 && z == 20)
+//                        std::cout << "zoom " << x << " " << y << " " << z  << "\n";
+
 					rotate30Map[x][y] = z;
 					success = true;
+                    
+//                    if(x == 4 && y == 173)
+//                    {
+//                        std::cout << y << " | " << z;
+//                    }
+                    
+//                    std::cout << "map " << rotate30Map[4][173]  << "\n";
+
 					break;
 				}
 			}
@@ -649,18 +769,21 @@ void HexagonEnvironment::BuildFlipTable()
 		if (total == 4) total = 19;
 
 		// and all locations/rotations
-		for (int y = 1; y <= total; y++)
+		for (int y = 1; y <= total; y++)// TODOX total is obsolete
 		{
 			// flip the piece from the given location
 			uint64_t loc = locations[x][y];
 			uint64_t flip_loc = 0;
+            int count = 0;
 			for (int x = 0; x < 64; x++) // simple and dumb
 			{
 				if ((loc>>x)&1)
 				{
 					flip_loc |= (one<<flipTable[x]);
+                    count ++;
 				}
 			}
+//            std::cout << "\n\n";
 			// find match to flip
 			bool success = false;
 			for (int z = 1; z <= total; z++)
@@ -671,17 +794,111 @@ void HexagonEnvironment::BuildFlipTable()
 					success = true;
 					break;
 				}
+                
+//                std::vector<int> b;
+//
+//                std::cout << x << z << "\n\n";
+//
+//                for (int t = 0; t < 54; t++)
+//                {
+//                    if ((locations[x][z]>>t)&1)
+//                    {
+//                        b.push_back(t);
+//                    }
+//                }
+//
+//                int size = b.size();//sizeof(b)/sizeof(*b);
+//
+//                if(true)
+//                {
+//                    std::cout << "-- (";
+//                    for(int p = 0; p < size; p++)
+//                    {printf("%d", b[p]);if(p<(size-1))std::cout << ", ";}
+//                    std::cout << ")\n";
+//                }
 			}
+            
+//            std::vector<int> b;
+//
+//            for (int t = 0; t < 54; t++)
+//            {
+//                if ((flip_loc>>t)&1)
+//                {
+//                    b.push_back(t);
+//                }
+//            }
+//
+//            int size = b.size();//sizeof(b)/sizeof(*b);
+//
+//            if(true)
+//            {
+//                std::cout << "---- [" << y << "/" << total << "] (";
+//                for(int p = 0; p < size; p++)
+//                {printf("%d", b[p]);if(p<(size-1))std::cout << ", ";}
+//                std::cout << ")\n";
+//            }
+            
 			assert(success == true);
 		}
 	}
 }
 
+//-- (0, 1, 2, 8, 9, 10)
+//-- (2, 3, 4, 10, 11, 12)
+//-- (4, 5, 6, 12, 13, 14)
+//-- (7, 8, 9, 17, 18, 19)
+//-- (9, 10, 11, 19, 20, 21)
+//-- (11, 12, 13, 21, 22, 23)
+//-- (13, 14, 15, 23, 24, 25)
+//-- (16, 17, 18, 27, 28, 29)
+//-- (18, 19, 20, 29, 30, 31)
+//-- (2, 3, 4)
+//-- (1, 2, 3, 9, 10, 11)
+//-- (3, 4, 5, 11, 12, 13)
+//-- (8, 9, 10, 18, 19, 20)
+//-- (10, 11, 12, 20, 21, 22)
+//-- (12, 13, 14, 22, 23, 24)
+//-- (17, 18, 19, 28, 29, 30)
+//-- (19, 20, 21, 30, 31, 32)
+//-- (21, 22, 23, 32, 33, 34)
+//-- (23, 24, 25, 34, 35, 36)
+//
+//(0, 1, 2, 8, 9, 10)
+//(2, 3, 4, 10, 11, 12)
+//(4, 5, 6, 12, 13, 14)
+//(7, 8, 9, 17, 18, 19)
+//(9, 10, 11, 19, 20, 21)
+//(11, 12, 13, 21, 22, 23)
+//(13, 14, 15, 23, 24, 25)
+//(16, 17, 18, 27, 28, 29)
+//(18, 19, 20, 29, 30, 31)
+//
+//(20, 21, 22, 31, 32, 33)
+//(22, 23, 24, 33, 34, 35)
+//(24, 25, 26, 35, 36, 37)
+//(28, 29, 30, 38, 39, 40)
+//(30, 31, 32, 40, 41, 42)
+//(32, 33, 34, 42, 43, 44)
+//(34, 35, 36, 44, 45, 46)
+//(39, 40, 41, 47, 48, 49)
+//(41, 42, 43, 49, 50, 51)
+//(43, 44, 45, 51, 52, 53)
+
+//(0, 1, 2, 8, 9, 10)
+//(0, 1, 2, 4, 7, 8, 9, 10, 11, 14, 15, 18, 19, 21, 23, 24, 25, 27, 29, 30, 32)
+//(16, 18, 19, 21, 27, 29, 30, 31, 32, 33, 35, 36, 38, 39, 40, 41, 42, 45, 46, 47, 48, 49, 51)
+
 void HexagonEnvironment::RotateCW(HexagonSearchState &s) const
 {
 	HexagonSearchState tmp;
+//    std::cout << "count " << s.cnt << "\n";
+//    std::cout << rotate30Map[4][173];
+
 	for (int x = 0; x < s.cnt; x++)
 	{
+//        if(x!=9) continue;
+//        std::cout << "x" << x << "\n";
+//        if(x == 9) s.state[x].piece = 10;
 		ApplyAction(tmp, RotateCW(s.state[x]));
 	}
 	s = tmp;
@@ -689,7 +906,10 @@ void HexagonEnvironment::RotateCW(HexagonSearchState &s) const
 
 HexagonAction HexagonEnvironment::RotateCW(HexagonAction a) const
 {
+//    std::cout << "rot " << a.piece << " " << a.location << "\n";
 	a.location = rotate30Map[a.piece][a.location];
+//    std::cout << "rop " << a.piece << " " << a.location << "\n";
+
 	return a;
 }
 
@@ -733,36 +953,197 @@ void HexagonEnvironment::GetActions(const HexagonSearchState &nodeID, std::vecto
 	unsigned int piece = pieces[nodeID.cnt];
 
 //	for (unsigned int x = 1; x <= locations[piece][0]; x++)
+    // dots & loc = 0 | dots & localized_holes = 1 (localized_holes is a table)
+//    std::cout<<flippable[nodeID.cnt];
+
 	switch (flippable[nodeID.cnt])
 	{
-		case kCanFlip:
-			for (unsigned int x = 1; x <= locations[piece][0]; x++)
-			{
-				if ((nodeID.bits&locations[piece][x]) == 0)
-					actions.push_back({piece, x});
-			}
-			break;
-		case kSide1:
-			for (unsigned int x = 1; x <= noFlipMoveCount[piece]; x++)
-			{
-				if ((nodeID.bits&locations[piece][x]) == 0)
-					actions.push_back({piece, x});
-			}
-			break;
-		case kSide2:
-			for (unsigned int x = noFlipMoveCount[piece]+1; x <= locations[piece][0]; x++)
-			{
-				if ((nodeID.bits&locations[piece][x]) == 0)
-					actions.push_back({piece, x});
-			}
-			break;
+        case kCanFlip:
+        case kHoles:
+            for (unsigned int x = 1; x <= locations[piece][0]; x++)
+            {
+                if ((nodeID.bits&locations[piece][x]) == 0)
+                    actions.push_back({piece, x});
+            }
+            break;
+        case kSide1:
+            for (unsigned int x = 1; x <= noFlipMoveCount[piece]; x++)
+            {
+                if ((nodeID.bits&locations[piece][x]) == 0)
+                    actions.push_back({piece, x});
+            }
+            break;
+        case kSide2:
+            for (unsigned int x = noFlipMoveCount[piece]+1; x <= locations[piece][0]; x++)
+            {
+                if ((nodeID.bits&locations[piece][x]) == 0)
+                    actions.push_back({piece, x});
+            }
+            break;
+//        case kHoles:
+//            for (unsigned int x = 1; x <= locations[piece][0]; x++)
+//            {
+//                if((nodeID.bits&locations[piece][x]) != 0) continue;
+////                if(x >= localized_holes[piece][0])
+////                {actions.push_back({piece, x});continue;;/*std::cout << (nodeID.bits&locations[piece][x]) << " " << (nodeID.dots^localized_holes[piece][x]) << "\n";*/}
+//
+////                std::cout << (nodeID.dots) << "\n";
+////                if (((nodeID.bits&locations[piece][x]) == 0) && ((nodeID.dots&locations[piece][x]) == 0 || nodeID.dots&localized_holes[piece][x] == 1))
+////                if (piece < 2)
+////                {
+////
+////                }
+//
+////                std::cout << "TRACK " << piece << " " << localized_holes[piece][x][0] << "\n";
+//                for (unsigned int y = 1; y <= localized_holes[piece][x][0]; y++)
+//                {
+//                    if (((nodeID.dots&~localized_holes[piece][x][y])&locations[piece][x]) == 0)//((nodeID.dots&locations[piece][x]) == 0) || (nodeID.dots^localized_holes[piece][x]) == 0)
+//                        //                if ((nodeID.bits&locations[piece][x]) == 0)
+//                    {actions.push_back({piece, x});break;/*std::cout << (nodeID.bits&locations[piece][x]) << " " << (nodeID.dots^localized_holes[piece][x]) << "\n";*/}
+//                }
+////                if((nodeID.bits&locations[piece][x]) == 0 && (((nodeID.dots&~localized_holes[piece][x])&locations[piece][x]) == 0 || x >= localized_holes[piece][0]))
+////                    std::cout << piece << "\n" << x << " | " << localized_holes[piece][0] << "\n" << std::bitset<54>(locations[piece][x]) << "\n" << std::bitset<54>(localized_holes[piece][x]) << "\n" << std::bitset<54>((nodeID.dots&~localized_holes[piece][x])&locations[piece][x]) << "\n\n";
+//            }
+//            break;
 	}
+    
 //	for (unsigned int x = 1; x <= (flippable[nodeID.cnt]?locations[piece][0]:noFlipMoveCount[piece]); x++)
 //	{
 //		if ((nodeID.bits&locations[piece][x]) == 0)
 //			actions.push_back({piece, x});
 //	}
+    
+    /*
+     holes, actual patterns
+     
+     */
 }
+
+// no need to test all patterns btw. Also, keep in mind that the trapezoids are not taken care of in this case
+// shared queue in utils
+
+int bestGlobal = INT_MAX;
+
+void HexagonEnvironment::ConstraintSpaceSearchParallel(std::vector<HexagonSearchState> goals, std::vector<int> pieces, std::map<uint64_t, int> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int threadNum, int totalThreads)
+{
+    std::map<uint64_t, int> localInterestingPatterns;
+    int best = goals.size();
+    THRESHOLD = std::ceil(goals.size()/2.0);
+    
+    for (uint64_t pattern = threadNum; pattern < numPatterns; pattern+=totalThreads)
+    {
+        if(pattern % 10000000 == 0)
+        {
+            std::cout << "Pattern " << pattern << " ("<< ((pattern*100)/numPatterns) << "%)" << "\n";
+        }
+        
+        uint64_t patternGoals = 0;
+        
+        for (HexagonSearchState goal : goals)
+        {
+            bool goalValid = true;
+            
+            for(int p = 0; p < goal.cnt; p++)
+            {
+                int piece = goal.state[p].piece;
+                int location = goal.state[p].location;
+                
+                bool valid = false;
+                
+                int x = (pattern / numPatterns) % 14;
+                
+                int x1 = (x+1) / 4;
+                int x2 = (x+1) % 4;
+                
+                if(x1 == 0 || x2 == 0) continue;
+                
+                if(x1 != 3)
+                {
+                    for (unsigned int y = 1; y <= (x1 == 1 ? localized_holes_side1_odd : localized_holes_side1_even)[piece][location][0]; y++)
+                    {
+                        if (((goal.dots&~(x1 == 1 ? localized_holes_side1_odd : localized_holes_side1_even)[piece][location][y])&locations[piece][location]) == 0)
+                        {
+                            valid = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if(x2 != 3)
+                {
+                    for (unsigned int y = 1; y <= (x2 == 1 ? localized_holes_side2_odd : localized_holes_side2_even)[piece][location][0]; y++)
+                    {
+                        if (((goal.dots&~(x2 == 1 ? localized_holes_side2_odd : localized_holes_side2_even)[piece][location][y])&locations[piece][location]) == 0)
+                        {
+                            valid = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if(!valid)
+                {
+                    goalValid = false;
+                    break;
+                }
+            }
+            
+            if(goalValid) patternGoals++;
+        }
+        
+        if(abs(int(patternGoals - THRESHOLD)) < best)
+        {
+            localInterestingPatterns.clear();
+            best = abs(int(patternGoals - THRESHOLD));
+        }
+        if(abs(int(patternGoals - THRESHOLD)) == best)
+        {
+            localInterestingPatterns[pattern] = patternGoals;
+        }
+    }
+    
+    patternLock.lock();
+    
+    if(best < bestGlobal)
+    {
+        bestGlobal = best;
+        interestingPatterns.clear();
+    }
+    for(auto p : localInterestingPatterns)
+    {
+        interestingPatterns[p.first] = p.second;
+    }
+    
+    patternLock.unlock();
+    
+    std::cout<<"THREAD (" << threadNum << ") COMPLETE\n";
+}
+
+//void foo(){}
+
+// clear: 0, odd: 1, even: 2, full: 3
+ 
+void HexagonEnvironment::ConstraintSpaceSearch(std::vector<HexagonSearchState> goals, std::vector<int> pieces)
+{
+    std::map<uint64_t, int> interestingPatterns;
+    int THRESHOLD = 10, THREADS = 16;
+    uint64_t numPatterns = pow(14, pieces.size());
+    
+    std::vector<std::thread> v;
+
+    for (int i = 0; i < THREADS; i++) {
+//        std::thread{&HexagonEnvironment::ConstraintSpaceSearchParallel, this, goals, pieces, std::ref(interestingPatterns), THRESHOLD, numPatterns, i, THREADS}.detach();
+        v.emplace_back(&HexagonEnvironment::ConstraintSpaceSearchParallel, this, goals, pieces, std::ref(interestingPatterns), THRESHOLD, numPatterns, i, THREADS);
+    }
+    
+    for (auto& t : v) {
+        t.join();
+    }
+    
+    std::cout << "Closest to half is " << bestGlobal << " number of patterns " << interestingPatterns.size() << "\n";
+}
+
+
 
 //QUE: is this on purpose?
 HexagonAction HexagonEnvironment::GetAction(const HexagonSearchState &s1, const HexagonSearchState &s2) const
@@ -1048,12 +1429,12 @@ void Hexagon::LoadPuzzle(const char *file, HexagonState &s)
 
 void Hexagon::Load(const char *file, HexagonState &s, bool solution)
 {
-	s.state.FillMax();
+    s.state.FillMax();
 	this->solution.state.FillMax();
 	FILE *f = fopen(file, "r");
 	if (f == 0)
 	{
-		printf("Error opening file for read\n");
+		printf("Error opening file for rea\n");
 		return;
 	}
 	int h, w;
@@ -1162,6 +1543,807 @@ void Hexagon::Load(const char *file, HexagonState &s, bool solution)
 		pieceColors[i] = rgbColor::hsl((touchPieces[0])/11.0, (touchPieces[0]%2)?1.0:0.5, 0.5);
 	for (auto i : notTouchPieces)
 		pieceColors[i] = rgbColor::hsl((notTouchPieces[0])/11.0, (notTouchPieces[0]%2)?1.0:0.5, 0.5);
+}
+
+//
+//void HexagonEnvironment::ConvertToSearchState(){
+//
+//}
+
+
+uint64_t HexagonEnvironment::BitsFromArray(std::vector<int> a)
+{
+    uint64_t r = 0;
+    for(int i : a) r|=(((uint64_t)1)<<i);
+    return r;
+}
+
+void HexagonEnvironment::ConvertToHexagonState(HexagonSearchState &hss, HexagonState &hs){
+    int trapizodeLocs = 0;
+    
+    for(int x = 0; x < hss.cnt; x++)
+    {
+        /*
+         
+         xxhhhhcccxx
+         xhhe66cccbx
+         ddeee66bbbb
+         ddd5ee66bjj
+         xdi55aaaajx
+         xxii555aaxx
+         
+         */
+        
+        int piece = hss.state[x].piece;
+        int location = hss.state[x].location;
+        uint64_t loc = locations[piece][location];//[hss.state[x].piece, hss.state[x].location];
+        
+//        std::cout << "RESIZING COLORS " << pieceColors.size();
+//        if (piece > pieceColors.size())
+//            pieceColors.resize(piece+1);
+//        pieceColors[piece] = rgbColor::hsl((piece)/11.0, (piece%2)?1.0:0.5, 0.5);
+        
+//        std::cout << "RESIZING COLORS END " << pieceColors.size();
+        
+        hs.state.Set(0, -1);
+        hs.state.Set(1, -1);
+        hs.state.Set(9, -1);
+        hs.state.Set(10, -1);
+        hs.state.Set(11, -1);
+        hs.state.Set(21, -1);
+        
+        hs.state.Set(65, -1);
+        hs.state.Set(64, -1);
+        hs.state.Set(56, -1);
+        hs.state.Set(55, -1);
+        hs.state.Set(54, -1);
+        hs.state.Set(44, -1);
+        
+//        std::cout << hss.state[x].piece << " " << hss.state[x].location<< " " << loc << '\n';
+
+        
+        for (int t = 0; t < 66; t++)// goes to 66 for hss!
+        {
+//            uint64_t fixedLoc = loc + 2 + (loc > 300 ? 3 : 0) + (loc > 400 ? 1 : 0) + (loc > 500 ? 3 : 0);
+            
+            int fixedT = (t == 0 || t == 1 || t == 9 || t == 10 || t == 11 || t == 21 || t == 65 || t == 64 || t == 56 || t == 55 || t == 54 || t == 44) ? -1 : (t / 11 == 0 ? (t-2) : (t / 11 == 1 ? (t-5) : (t / 11 == 2 || t / 11 == 3 ? (t-6) : (t / 11 == 4 ? (t-7) : (t-10)))));
+            
+            if(fixedT < 0) continue;
+            
+            if ((loc>>fixedT)&1)
+            {
+                int mappedPiece = mapPiece[piece];
+                if(mappedPiece == 8) trapizodeLocs++;
+                hs.state.Set(t, mappedPiece == 8 && trapizodeLocs > 3 ? 10 : mappedPiece);
+
+//                int x1, y1;
+//                IndexToXY(t, x1, y1);
+                
+//                printf("%d : %d => %d\n", t, fixedT, mapPiece[piece]);
+//                flip_loc |= (one<<flipTable[x]);
+            }
+        }
+        
+    }
+    
+//    printf("trapizode locs: %s \n", trapizodeLocs);
+
+}
+
+void HexagonEnvironment::BuildLocationTable()
+{
+    //    uint64_t newLocations[numPieces][14*6*2+1];
+    uint64_t one = 1;
+    bool V = false;
+    
+    for(int piece = 0; piece < numPieces; piece++)
+    {
+        std::vector<uint64_t> locs;
+        
+        uint64_t loc_orig = locations_orig[piece][1];//loop through rotations and flips
+        
+        
+        for (int flip = 0; flip < 2; flip++)
+        {
+            uint64_t flip_loc = flip == 1 ? 0 : loc_orig;
+            
+            if(flip == 1)
+            {
+                for (int x = 0; x < 54; x++) // simple and dumb
+                {
+                    if ((loc_orig>>x)&1)
+                    {
+                        flip_loc |= (one<<flipTable[x]);
+                    }
+                }
+            }
+            
+            for (int rots = 0; rots < 6; rots++)
+            {
+                uint64_t loc = flip_loc;//rots == 0 ? flip_loc : 0;
+                
+                for(int rot = 0; rot < rots; rot++)
+                {
+                    uint64_t rot_loc = 0;
+                    for (int x = 0; x < 54; x++) // simple and dumb
+                    {
+                        if ((loc>>x)&1)
+                        {
+                            rot_loc |= (one<<rotateCWTable[x]);
+                        }
+                    }
+                    loc = rot_loc;
+                }
+                
+                std::vector<int> b;
+                
+                for (int t = 0; t < 54; t++)
+                {
+                    if ((loc>>t)&1)
+                    {
+                        b.push_back(t);
+                    }
+                }
+                
+                int size = b.size();//sizeof(b)/sizeof(*b);
+                
+                if(V)
+                {
+                    std::cout << "(";
+                    for(int p = 0; p < size; p++)
+                    {printf("%d", b[p]);if(p<(size-1))std::cout << ", ";}
+                    std::cout << ")\n";
+                }
+                
+                int bits[size][2];
+                
+                for(int p = 0; p < size; p++)
+                {
+                    int loc = b[p];
+                    loc += loc < 7 ? 2 : (loc < 16 ? 5 : (loc < 38 ? 6 : (loc < 47 ? 7 : 10)));
+                    
+                    bits[p][0] = loc % 11;
+                    bits[p][1] = loc / 11;
+                }
+                
+                if(V)
+                {
+                    std::cout << "(";
+                    for(int p = 0; p < size; p++)
+                    {printf("(%d,%d)", bits[p][0],bits[p][1]);if(p<(size-1))std::cout << ", ";}
+                    std::cout << ")\n\n";
+                }
+                
+                for (int y = -6; y < 6; y++)
+                {
+                    for (int x = -10; x < 10; x++)
+                    {
+                        if(((bits[0][0]+x)+11*(bits[0][1]+y))%2 != (bits[0][0]+11*bits[0][1])%2)
+                            continue;
+                        
+                        int bits2[size][2];
+                        
+                        for(int p = 0; p < size; p++)// can be moved down
+                        {
+                            bits2[p][0] = bits[p][0] + x;
+                            bits2[p][1] = bits[p][1] + y;
+                        }
+                        
+                        bool valid = true;
+                        
+                        int bitsr[size];
+                        uint64_t location = 0;
+                        
+                        for(int p = 0; p < size; p++)
+                        {
+                            if((bits2[p][0] < 2 && bits2[p][1] % 5 == 0) ||
+                               (bits2[p][0] < 1 && (bits2[p][1]-1) % 3 == 0) ||
+                               (bits2[p][0] > 8 && bits2[p][1] % 5 == 0) ||
+                               (bits2[p][0] > 9 && (bits2[p][1]-1) % 3 == 0) ||
+                               bits2[p][0] > 10 || bits2[p][0] < 0 || bits2[p][1] > 5 || bits2[p][1] < 0)
+                            {
+                                valid = false;
+                                break;
+                            }
+                            
+                            int bit = bits2[p][0] + 11*bits2[p][1];
+                            bit -= bits2[p][1] == 0 ? 2 : (bits2[p][1] == 1 ? 5 : (bits2[p][1] == 2 || bits2[p][1] == 3 ? 6 : (bits2[p][1] == 4 ? 7 : 10)));
+                            
+                            bitsr[p] = bit;
+                            
+                            location |= (one<<bit);
+                        }
+                        
+                        if(!valid)
+                            continue;
+                        
+                        if (find(locs.begin(), locs.end(), location) == locs.end())
+                            locs.push_back(location);
+                        
+                        if(V)
+                        {
+                            std::cout << "(";
+                            for(int p = 0; p < size; p++)
+                            {printf("%d", bitsr[p]);if(p<(size-1))std::cout << ", ";}
+                            std::cout << ")\n";
+                        }
+                        
+                        //                        std::vector<int> b2;
+                        //
+                        //                        for (int t = 0; t < 54; t++)
+                        //                        {
+                        //                            if ((location>>t)&1)
+                        //                            {
+                        //                                b2.push_back(t);
+                        //                            }
+                        //                        }
+                        //
+                        //                        int size2 = b2.size();//sizeof(b)/sizeof(*b);
+                        //
+                        //                        if(true)
+                        //                        {
+                        //                            std::cout << "(";
+                        //                            for(int p = 0; p < size2; p++)
+                        //                            {printf("%d", b2[p]);if(p<(size2-1))std::cout << ", ";}
+                        //                            std::cout << ")\n";
+                        //                        }
+                    }
+                }
+            }
+            
+            noFlipMoveCount[piece] = locs.size();
+        }
+        
+        locations[piece][0] = locs.size();
+        
+        for(int loc = 0; loc < locs.size(); loc++)
+        {
+            locations[piece][1+loc] = locs[loc];
+            std::vector<int> b;
+            
+            for (int t = 0; t < 54; t++)
+            {
+                if ((locations[piece][1+loc]>>t)&1)
+                {
+                    b.push_back(t);
+                }
+            }
+            
+            int size = b.size();//sizeof(b)/sizeof(*b);
+            
+            if(true)
+            {
+                std::cout << "["<<(loc+1)<<"] (";
+                for(int p = 0; p < size; p++)
+                {printf("%d", b[p]);if(p<(size-1))std::cout << ", ";}
+                std::cout << ")\n";
+            }
+        }
+        
+        //        std::vector<int> b;
+        //
+        //        for (int t = 0; t < 54; t++)
+        //        {
+        //            if ((locations[0][10]>>t)&1)
+        //            {
+        //                b.push_back(t);
+        //            }
+        //        }
+        //
+        //        int size = b.size();//sizeof(b)/sizeof(*b);
+        //
+        //        if(true)
+        //        {
+        //            std::cout << "+++ (";
+        //            for(int p = 0; p < size; p++)
+        //            {printf("%d", b[p]);if(p<(size-1))std::cout << ", ";}
+        //            std::cout << ")\n";
+        //        }
+        
+        std::cout << "\n\n";
+    }
+}
+
+    
+    void HexagonEnvironment::BuildHolesTable()
+    {
+    //    uint64_t newLocations[numPieces][14*6*2+1];
+        uint64_t one = 1;
+        bool V = false;
+
+        for(int piece = 0; piece < numPieces; piece++)
+        {\
+            uint64_t loc_orig = locations_orig[piece][1];//loop through rotations and flips
+//            uint64_t hole_loc_orig = hole_locations_orig[piece][1];//loop through rotations and flips
+
+            for (int even = 0; even < 2; even ++)
+            {
+                uint64_t hole_loc_orig = even == 1 ? hole_locations_orig[piece][2]: hole_locations_orig[piece][1];
+
+                for (int flip = 0; flip < 2; flip++)//TODO check flips
+                {
+                    std::vector<uint64_t> locs;
+                    std::vector<std::vector<uint64_t>> hole_locs;
+                    
+                    uint64_t flip_loc = flip == 1 ? 0 : loc_orig;
+                    uint64_t hole_flip_loc = flip == 1 ? 0 : hole_loc_orig;
+                    
+                    if(flip == 1)
+                    {
+                        for (int x = 0; x < 54; x++) // simple and dumb
+                        {
+                            if ((loc_orig>>x)&1)
+                            {
+                                flip_loc |= (one<<flipTable[x]);
+                            }
+                            
+                            if ((hole_loc_orig>>x)&1)
+                            {
+                                hole_flip_loc |= (one<<flipTable[x]);
+                            }
+                        }
+                        //hole flip normally? (confirm)
+                    }
+                    
+                    
+                    //                if(flip_loc != hole_flip_loc)
+                    //                {
+                    //
+                    //                    std::cout << "R 0: " << std::bitset<54>(flip_loc) << "\n";
+                    //                    std::cout << "R 1: " << std::bitset<54>(hole_flip_loc) << "\n";
+                    //
+                    //                }
+                    
+                    for (int rots = 0; rots < 6; rots++)
+                    {
+                        uint64_t loc = flip_loc;//rots == 0 ? flip_loc : 0;
+                        uint64_t hole_loc = hole_flip_loc;//rots == 0 ? flip_loc : 0;
+                        
+                        for(int rot = 0; rot < rots; rot++)
+                        {
+                            uint64_t rot_loc = 0;
+                            uint64_t hole_rot_loc = 0;
+                            
+                            for (int x = 0; x < 54; x++) // simple and dumb
+                            {
+                                if ((loc>>x)&1)
+                                {
+                                    rot_loc |= (one<<rotateCWTable[x]);
+                                }
+                                if ((hole_loc>>x)&1)
+                                {
+                                    hole_rot_loc |= (one<<rotateCWTable[x]);
+                                }
+                            }
+                            loc = rot_loc;
+                            hole_loc = hole_rot_loc;
+                            
+                            //hole rot normally? (confirm)
+                        }
+                        
+                        
+                        //                    if(loc != hole_loc)
+                        //                    {
+                        //
+                        //                        std::cout << "R 0: " << std::bitset<54>(loc) << "\n";
+                        //                        std::cout << "R 1: " << std::bitset<54>(hole_loc) << "\n";
+                        //
+                        //                    }
+                        
+                        std::vector<int> b;
+                        std::vector<int> hole_b;
+                        
+                        for (int t = 0; t < 54; t++)
+                        {
+                            if ((loc>>t)&1)
+                            {
+                                b.push_back(t);
+                            }
+                            if ((hole_loc>>t)&1)
+                            {
+                                hole_b.push_back(t);
+                            }
+                        }
+                        
+                        int size = b.size();//sizeof(b)/sizeof(*b);
+                        int hole_size = hole_b.size();//sizeof(b)/sizeof(*b);
+                        
+                        if(V)
+                        {
+                            std::cout << "(";
+                            for(int p = 0; p < size; p++)
+                            {printf("%d", b[p]);if(p<(size-1))std::cout << ", ";}
+                            std::cout << ")\n";
+                        }
+                        
+                        int bits[size][2], hole_bits[hole_size][2];
+                        
+                        for(int p = 0; p < size; p++)
+                        {
+                            int loc = b[p];
+                            loc += loc < 7 ? 2 : (loc < 16 ? 5 : (loc < 38 ? 6 : (loc < 47 ? 7 : 10)));
+                            
+                            bits[p][0] = loc % 11;
+                            bits[p][1] = loc / 11;
+                        }
+                        
+                        for(int p = 0; p < hole_size; p++)
+                        {
+                            int loc = hole_b[p];
+                            loc += loc < 7 ? 2 : (loc < 16 ? 5 : (loc < 38 ? 6 : (loc < 47 ? 7 : 10)));
+                            
+                            hole_bits[p][0] = loc % 11;
+                            hole_bits[p][1] = loc / 11;
+                        }
+                        
+//                        for(int p = 0; p < hole_size; p++)
+//                        {
+//                            if(b[p] != hole_b[p])// || bits[p][0] != hole_bits[p][0])
+//                            {
+//                                std::cout << b[p] << " " << hole_b[p] << "CATCH";
+//                                
+//                            }
+//                        }
+                        if(V)
+                        {
+                            std::cout << "(";
+                            for(int p = 0; p < size; p++)
+                            {printf("(%d,%d)", bits[p][0],bits[p][1]);if(p<(size-1))std::cout << ", ";}
+                            std::cout << ")\n\n";
+                        }
+                        
+                        for (int y = -6; y < 6; y++)
+                        {
+                            for (int x = -10; x < 10; x++)
+                            {
+                                if(((bits[0][0]+x)+11*(bits[0][1]+y))%2 != (bits[0][0]+11*bits[0][1])%2)
+                                    continue;
+                                
+                                int bits2[size][2], hole_bits2[hole_size][2];
+                                
+                                for(int p = 0; p < size; p++)// can be moved down
+                                {
+                                    bits2[p][0] = bits[p][0] + x;
+                                    bits2[p][1] = bits[p][1] + y;
+                                    
+                                    //peform same movement for hole bits
+                                }
+                                
+                                for(int p = 0; p < hole_size; p++)// can be moved down
+                                {
+                                    hole_bits2[p][0] = hole_bits[p][0] + x;
+                                    hole_bits2[p][1] = hole_bits[p][1] + y;
+                                    
+                                    //peform same movement for hole bits
+                                }
+                                
+                                bool valid = true;
+                                
+                                //                            int bitsr[size], hole_bitsr[hole_size];
+                                uint64_t location = 0;
+                                uint64_t hole_location = 0;
+                                
+                                for(int p = 0; p < size; p++)
+                                {
+                                    if((bits2[p][0] < 2 && bits2[p][1] % 5 == 0) ||
+                                       (bits2[p][0] < 1 && (bits2[p][1]-1) % 3 == 0) ||
+                                       (bits2[p][0] > 8 && bits2[p][1] % 5 == 0) ||
+                                       (bits2[p][0] > 9 && (bits2[p][1]-1) % 3 == 0) ||
+                                       bits2[p][0] > 10 || bits2[p][0] < 0 || bits2[p][1] > 5 || bits2[p][1] < 0)
+                                    {
+                                        valid = false;
+                                        break;
+                                    }
+                                    
+                                    //                                int bit = bits2[p][0] + 11*bits2[p][1];
+                                    //                                bit -= bits2[p][1] == 0 ? 2 : (bits2[p][1] == 1 ? 5 : (bits2[p][1] == 2 || bits2[p][1] == 3 ? 6 : (bits2[p][1] == 4 ? 7 : 10)));
+                                    //
+                                }
+                                
+                                if(!valid)
+                                    continue;
+                                
+                                for (int p = 0; p < hole_size; p++) {
+                                    int hole_bit = hole_bits2[p][0] + 11*hole_bits2[p][1];
+                                    hole_bit -= hole_bits2[p][1] == 0 ? 2 : (hole_bits2[p][1] == 1 ? 5 : (hole_bits2[p][1] == 2 || hole_bits2[p][1] == 3 ? 6 : (hole_bits2[p][1] == 4 ? 7 : 10)));
+                                    
+                                    hole_location |= (one<<hole_bit);
+                                }
+                                
+                                for (int p = 0; p < size; p++) {
+                                    int bit = bits2[p][0] + 11*bits2[p][1];
+                                    bit -= bits2[p][1] == 0 ? 2 : (bits2[p][1] == 1 ? 5 : (bits2[p][1] == 2 || bits2[p][1] == 3 ? 6 : (bits2[p][1] == 4 ? 7 : 10)));
+                                    
+                                    location |= (one<<bit);
+                                }
+                                
+                                //                            std::cout << "RF 5: " << piece << " " << rots << " " << flip << " " << (location == hole_location ? "EQ" : "NE") << "\n";
+                                
+                                
+                                if (find(locs.begin(), locs.end(), location) == locs.end())
+                                {
+                                    locs.push_back(location);
+                                    //                                hole_locs.push_back(hole_location);
+                                    
+                                    std::vector<uint64_t> ls;
+                                    ls.push_back(hole_location);
+                                    
+                                    hole_locs.push_back(ls);
+                                    
+                                    
+                                    //                                std::cout << "S 0: " << std::bitset<54>(location) << "\n";
+                                    //                                std::cout << "S 1: " << std::bitset<54>(hole_location) << "\n";
+                                    
+                                }
+                                else
+                                {
+                                    int w = find(locs.begin(), locs.end(), location) - locs.begin();
+                                    
+                                    //                                std::cout << "HOLE AGAIN " << w << " " << hole_locs[w].size() << "\n";
+                                    
+                                    if(find(hole_locs[w].begin(), hole_locs[w].end(), hole_location) == hole_locs[w].end())
+                                    {
+                                        hole_locs[w].push_back(hole_location);
+                                        
+                                        if(piece == 0 && w == 1 && hole_locs[w].size() == 2)
+                                        {
+                                            std::cout << "G 0: " << std::bitset<54>(location) << "\n";
+                                            std::cout << "G 1: " << std::bitset<54>(hole_locs[w][0]) << "\n";
+                                            std::cout << "G 2: " << std::bitset<54>(hole_locs[w][1]) << "\n";
+                                            std::cout << "G 3: " << std::bitset<54>(hole_location) << "\n";
+                                            std::cout << "G 4: " << std::bitset<54>(locs[w]) << "\n";
+                                            std::cout << "G 5: " << rots << " " << flip << "\n";
+                                            
+                                            
+                                        }
+                                    }
+                                }
+                                
+                                if(V)
+                                {
+                                    //                                std::cout << "(";
+                                    //                                for(int p = 0; p < size; p++)
+                                    //                                {printf("%d", bitsr[p]);if(p<(size-1))std::cout << ", ";}
+                                    //                                std::cout << ")\n";
+                                }
+                                
+                                //                        std::vector<int> b2;
+                                //
+                                //                        for (int t = 0; t < 54; t++)
+                                //                        {
+                                //                            if ((location>>t)&1)
+                                //                            {
+                                //                                b2.push_back(t);
+                                //                            }
+                                //                        }
+                                //
+                                //                        int size2 = b2.size();//sizeof(b)/sizeof(*b);
+                                //
+                                //                        if(true)
+                                //                        {
+                                //                            std::cout << "(";
+                                //                            for(int p = 0; p < size2; p++)
+                                //                            {printf("%d", b2[p]);if(p<(size2-1))std::cout << ", ";}
+                                //                            std::cout << ")\n";
+                                //                        }
+                            }
+                        }
+                    }
+                    
+                    for(int loc = 0; loc < hole_locs.size(); loc++)
+                    {
+                        (flip == 0 ? (even == 0 ? localized_holes_side1_odd : localized_holes_side1_even) : (even == 0 ? localized_holes_side2_odd : localized_holes_side2_even))[piece][1+loc][0] = hole_locs[loc].size();
+                        for (int q = 0; q < hole_locs[loc].size(); q++) {
+                            (flip == 0 ? (even == 0 ? localized_holes_side1_odd : localized_holes_side1_even) : (even == 0 ? localized_holes_side2_odd : localized_holes_side2_even))[piece][1+loc][1+q] = hole_locs[loc][q];
+                        }
+                    }
+                    
+                }
+            }
+            
+            
+            
+
+//            localized_holes[piece][0] = hole_locs.size();
+            
+//            std::cout << "SIZE " << hole_locs.size() << "\n";
+
+//                uint64_t locz_holes = (flip == 0 ? localized_holes : localized_holes_flipped);
+            
+            
+
+
+        }
+        
+//                std::vector<int> b; EDIT: print function from here to end of "for"
+//
+//                for (int t = 0; t < 54; t++)
+//                {
+//                    if ((localized_holes[piece][1+loc]>>t)&1)
+//                    {
+//                        b.push_back(t);
+//                    }
+//                }
+//
+//                int size = b.size();//sizeof(b)/sizeof(*b);
+//
+//                if(true)
+//                {
+//                    std::cout << "["<<(loc+1)<<"] (";
+//                    for(int p = 0; p < size; p++)
+//                    {printf("%d", b[p]);if(p<(size-1))std::cout << ", ";}
+//                    std::cout << ")\n";
+//                }
+        
+        //        std::vector<int> b;
+        //
+        //        for (int t = 0; t < 54; t++)
+        //        {
+        //            if ((locations[0][10]>>t)&1)
+        //            {
+        //                b.push_back(t);
+        //            }
+        //        }
+        //
+        //        int size = b.size();//sizeof(b)/sizeof(*b);
+        //
+        //        if(true)
+        //        {
+        //            std::cout << "+++ (";
+        //            for(int p = 0; p < size; p++)
+        //            {printf("%d", b[p]);if(p<(size-1))std::cout << ", ";}
+        //            std::cout << ")\n";
+        //        }
+
+    //            std::cout << "\n\n";
+//
+//
+//    std::array<std::array<uint64_t, numPieces>, (14*6*2+1)> xs;
+//
+//    return xs;
+//    int bits[] = {0,1,2};
+//    bool done = false;
+//    int size = sizeof(bits)/sizeof(*bits), inc = 0, aff = bits[0] % 2 == 0 ? 1 : -1;
+//
+//    for (int j = 0; j < size; j++)
+//        bits[j] -= 2;
+//
+//
+//
+//
+//    while(true)
+//    {
+//        bool touchingLeft = false, touchingRight = false;
+//
+//        for (int j = 0; j < size; j++)
+//        {
+//            int bit = bits[j] + 2;
+//            touchingRight = touchingRight || bit == 6 || bit == 15 || bit == 26 || bit == 37 || bit == 46 || bit == 53;
+//            touchingLeft = touchingLeft || bit == 0 || bit == 7 || bit == 16 || bit == 27 || bit == 38 || bit == 47;
+//
+//            if(bit > 53)
+//            {
+//                done = true;
+//                break;
+//            }
+//
+//            if(((bits[j] <= 6 && bit > 6) || (bits[j] <= 15 && bit > 15)))
+//            {inc = -1 * aff; printf("\n");}
+//
+//            if(((bits[j] <= 37 && bit > 37) || (bits[j] <= 46 && bit > 46)))
+//            {inc = 1 * aff; printf("\n");}
+//
+//            bits[j] = bit + inc;
+//        }
+//
+//
+//        if(done)
+//            break;
+//
+//
+//
+//        if(!(touchingLeft && touchingRight))
+//        {
+////            table.add(bits);
+//            printf("(%d, %d, %d)  ", bits[0], bits[1], bits[2]);
+//        }
+////        else
+////        {
+////            for (int j = 0; j < size; j++)
+////                bits[j] += inc;
+////        }
+//
+//        inc = 0;
+//    }
+//
+//    bits(0, 1, 2), bits(2, 3, 4), bits(4, 5, 6),
+//    bits(7, 8, 9), bits(9, 10, 11), bits(11, 12, 13), bits(13, 14, 15),
+//    bits(16, 17, 18), bits(18, 19, 20), bits(20, 21, 22), bits(22, 23, 24), bits(24, 25, 26),
+//    bits(28, 29, 30), bits(30, 31, 32), bits(32, 33, 34), bits(34, 35, 36),
+//    bits(39, 40, 41), bits(41, 42, 43), bits(43, 44, 45),
+//    bits(48, 49, 50), bits(50, 51, 52),
+    
+    
+//
+//    // downward pieces
+//    bits(1, 2, 3), bits(3, 4, 5),
+//    bits(8, 9, 10), bits (10, 11, 12), bits(12, 13, 14),
+//    bits(17, 18, 19), bits(19, 20, 21), bits(21, 22, 23), bits(23, 24, 25),
+//    bits(27, 28, 29), bits(29, 30, 31), bits(31, 32, 33), bits(33, 34, 35), bits(35, 36, 37),
+//    bits(38, 39, 40), bits(40, 41, 42), bits(42, 43, 44), bits(44, 45, 46),
+//    bits(47, 48, 49), bits(49, 50, 51), bits(51, 52, 53),
+//    // one clockwise rotation
+//    bits(5, 6, 14), bits(14, 15, 25), bits(25, 26, 37),
+//    bits(3, 4, 12), bits(12, 13, 23), bits(23, 24, 35), bits(35, 36, 46),
+//    bits(1, 2, 10), bits(10, 11, 21), bits(21, 22, 33), bits(33, 34, 44), bits(44, 45, 53),
+//    bits(8, 9, 19), bits(19, 20, 31), bits(31, 32, 42), bits(42, 43, 51),
+//    bits(17, 18, 29), bits(29, 30, 40), bits(40, 41, 49),
+//    bits(27, 28, 38), bits(38, 39, 47),
+//    // one clockwise rotation downward
+//    bits(6, 14, 15), bits(15, 25, 26),
+//    bits(4, 12, 13), bits(13, 23, 24), bits(24, 35, 36),
+//    bits(2, 10, 11), bits(11, 21, 22), bits(22, 33, 34), bits(34, 44, 45),
+//    bits(0, 8, 9), bits(9, 19, 20), bits(20, 31, 32), bits(32, 42, 43), bits(43, 51, 52),
+//    bits(7, 17, 18), bits(18, 29, 30), bits(30, 40, 41), bits(41, 49, 50),
+//    bits(16, 27, 28), bits(28, 38, 39), bits(39, 47, 48),
+//    // two clockwise rotations
+//    bits(27, 16, 17), bits(17, 7, 8), bits(8, 0, 1),
+//    bits(38, 28, 29), bits(29, 18, 19), bits(19, 9, 10), bits(10, 2, 3),
+//    bits(47, 39, 40), bits(40, 30, 31), bits(31, 20, 21), bits(21, 11, 12), bits(12, 4, 5),
+//    bits(49, 41, 42), bits(42, 32, 33), bits(33, 22, 23), bits(23, 13, 14),
+//    bits(51, 43, 44), bits(44, 34, 35), bits(35, 24, 25),
+//    bits(53, 45, 46), bits(46, 36, 37),
+//    // two clockwise rotations downward
+//    bits(16, 17, 7), bits(7, 8, 0),
+//    bits(28, 29, 18), bits(18, 19, 9), bits(9, 10, 2),
+//    bits(39, 40, 30), bits(30, 31, 20), bits(20, 21, 11), bits(11, 12, 4),
+//    bits(48, 49, 41), bits(41, 42, 32), bits(32, 33, 22), bits(22, 23, 13), bits(13, 14, 6),
+//    bits(50, 51, 43), bits(43, 44, 34), bits(34, 35, 24), bits(24, 25, 15),
+//    bits(52, 53, 45), bits(45, 46, 36), bits(36, 37, 26)
+
+    //    bits(0, 1, 2, 3, 4, 5),
+//    bits(7, 8, 9, 10, 11, 12), bits(9, 10, 11, 12, 13, 14),
+//    bits(16, 17, 18, 19, 20, 21), bits(18, 19, 20, 21, 22, 23), bits(20, 21, 22, 23, 24, 25),
+//    bits(28, 29, 30, 31, 32, 33), bits(30, 31, 32, 33, 34, 35), bits(32, 33, 34, 35, 36, 37),
+//    bits(39, 40, 41, 42, 43, 44), bits(41, 42, 43, 44, 45, 46),
+//    bits(48, 49, 50, 51, 52, 53),
+    
+//    bits(28, 38, 39, 47, 48, 49), bits(16, 27, 28, 38, 39, 40),
+//    bits(30, 40, 41, 49, 50, 51), bits(18, 29, 30, 40, 41, 42), bits(7, 17, 18, 29, 30, 31),
+//    bits(32, 42, 43, 51, 52, 53), bits(20, 31, 32, 42, 43, 44), bits(9, 19, 20, 31, 32, 33), bits(0, 8, 9, 19, 20, 21),
+//    bits(22, 33, 34, 44, 45, 46), bits(11, 21, 22, 33, 34, 35), bits(2, 10, 11, 21, 22, 23),
+//    bits(13, 23, 24, 35, 36, 37),
+}
+
+/*
+ 
+ pieces:
+     flips:
+         rotations:
+            locations
+            - similar? add to location holes list
+            - new? add a new location
+ 
+ 
+ 
+ [bits(), bits(), ...]
+    |
+    V
+ [holes(), holes(), holes(), ...]
+ 
+*/
+
+
+std::string HexagonEnvironment::PrintHexagonState(HexagonState &hs){
+    std::string res = "";
+    for (int t = 0; t < 66; t++)// goes to 66 for hss!
+    {
+        if(t % 11 == 0 && t != 0) res += "\n";
+        int p = hs.state.Get(t);
+        res += p == 15 ? "x" : std::to_string(p);
+    }
+    
+    return res;
 }
 
 void Hexagon::GetSuccessors(const HexagonState &nodeID, std::vector<HexagonState> &neighbors) const
@@ -1547,9 +2729,10 @@ void Hexagon::Draw(Graphics::Display &display, const HexagonState &s) const
 			Graphics::point p1, p2, p3;
 			GetCorners(x, y, p1, p2, p3);
 			int piece = s.state.Get(y*11+x);
-			if (piece < 10)
+			if (piece < 11)
 			{
-				display.FillTriangle(p1, p2, p3, pieceColors[piece]);
+//                std::cout << "PIECE COLORS " << piece << "\n";
+                display.FillTriangle(p1, p2, p3, rgbColor::hsl((piece)/11.0, (piece%2)?1.0:0.5, 0.5));//pieceColors[piece]);
 			}
 		}
 	}

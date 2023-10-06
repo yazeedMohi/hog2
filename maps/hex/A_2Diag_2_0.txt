@@ -1,0 +1,11 @@
+type triangle
+height 6
+width  11
+map
+Constraint: NoFlip 0 4 6 Diag 2 3 8
+xxccceee7xx
+xbcccee77jx
+bbbbded77jj
+ggbfdddd7ii
+xggff0000ix
+xxggfff00xx

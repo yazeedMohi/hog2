@@ -1,0 +1,11 @@
+type triangle
+height 6
+width  11
+map
+Constraint: NoFlip 0 4 6 Touch 2 3 8
+xxjjj0000xx
+xheeeee005x
+hhded55555g
+hhddddiiigg
+xhcccbbbggx
+xxcccbbbgxx

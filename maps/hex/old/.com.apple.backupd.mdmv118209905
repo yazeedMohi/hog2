@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>DateStarted</key>
+	<date>2021-11-22T11:01:44Z</date>
+	<key>FileID</key>
+	<integer>118209905</integer>
+	<key>NameSpaceID</key>
+	<integer>3332112047</integer>
+	<key>NewPath</key>
+	<string>Users/nathanst/hog2/maps/hex/old/puzzle</string>
+	<key>SourcePath</key>
+	<string>Users/nathanst/hog2/maps/hex/puzzle</string>
+</dict>
+</plist>

@@ -37,7 +37,7 @@
       launchStyle = "0"
       useCustomWorkingDirectory = "NO"
       ignoresPersistentStateOnLaunch = "NO"
-      debugDocumentVersioning = "YES"
+      debugDocumentVersioning = "NO"
       debugServiceExtension = "internal"
       allowLocationSimulation = "YES">
       <BuildableProductRunnable
@@ -56,12 +56,20 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "-comparePuzzles /Users/yazeedsabil/Documents/hog2/maps/hex/"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "-loadSolution /Users/nathanst/hog2/maps/hex/B_2Diag_2_5.txt "
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "-loadPuzzle /Users/nathanst/hog2/maps/hex/A_1Touch_1_8.txt"
-            isEnabled = "YES">
+            argument = "-loadPuzzle /Users/yazeedsabil/Documents/hog2/maps/hex/B_0Constraint_1.txt"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "-loadSolution /Users/yazeedsabil/Documents/hog2/maps/hex/A_1Touch_1_8.txt"
+            isEnabled = "NO">
          </CommandLineArgument>
       </CommandLineArguments>
    </LaunchAction>

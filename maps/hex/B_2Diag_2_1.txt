@@ -1,0 +1,11 @@
+type triangle
+height 6
+width  11
+map
+Constraint: Diag 2 3 8
+xxffbaaaaxx
+xffbbbbaahx
+6ffddbccchh
+66ddd4ccchh
+x66d44444hx
+xx6iiijjjxx

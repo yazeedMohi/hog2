@@ -1,0 +1,11 @@
+type triangle
+height 6
+width  11
+map
+Constraint: none
+xxggfffffxx
+xggdfdhhhhx
+ggddddjj1hh
+ee0000j1111
+xeee00ccc1x
+xxeiiicccxx

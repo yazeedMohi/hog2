@@ -1,0 +1,11 @@
+type triangle
+height 6
+width  11
+map
+Constraint: Touch 2 3 8
+xxccc111jxx
+xhccc111jjx
+hhiidgggggg
+hhidddeeeee
+xhfdd0000ex
+xxfffff00xx

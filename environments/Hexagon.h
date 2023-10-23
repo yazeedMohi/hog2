@@ -161,6 +161,7 @@ public:
 //        dots = 0;
     }
     uint64_t bits, dots;
+    std::array<bool, 100> edgeAdjacencies, cornerAdjacencies;
 	int cnt;
 	std::array<HexagonAction, 12> state;
 //	NBitArray<4> state;
@@ -211,7 +212,9 @@ public:
 	void GetActions(const HexagonSearchState &nodeID, std::vector<HexagonAction> &actions) const;
     void ConstraintSpaceSearch(std::vector<HexagonSearchState> goals, std::vector<int> pieces);
 //    void ConstraintSpaceSearchParallel(std::vector<HexagonSearchState> goals, std::vector<int> pieces, std::map<uint64_t, int> interestingPatterns, int THRESHOLD, uint64_t numPatterns, int threadNum, int totalThreads);
-    void ConstraintSpaceSearchParallel(std::vector<HexagonSearchState> goals, std::vector<int> pieces, std::map<uint64_t, int> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int threadNum, int totalThreads);
+    void ConstraintSpaceSearchParallel(std::vector<HexagonSearchState> goals, std::vector<int> pieces, std::vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int threadNum, int totalThreads);
+    
+    void ColorConstraintSpaceSearchParallel(std::vector<HexagonSearchState> goals, std::vector<int> pieces, std::vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int threadNum, int totalThreads);
     
     // @param[in] nb_elements : size of your for loop
     /// @param[in] functor(start, end) :

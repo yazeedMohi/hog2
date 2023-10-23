@@ -3,4 +3,70 @@
    uuid = "8575F5B8-A57C-49A1-BAC1-CBD47C47E3E3"
    type = "1"
    version = "2.0">
+   <Breakpoints>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "10E7DE05-316C-46DE-9466-6E5378385D98"
+            shouldBeEnabled = "No"
+            condition = "true"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "../../../environments/Hexagon.cpp"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "2619"
+            endingLineNumber = "2619"
+            landmarkName = "HexagonEnvironment::BuildHolesTable()"
+            landmarkType = "7">
+            <Locations>
+               <Location
+                  uuid = "10E7DE05-316C-46DE-9466-6E5378385D98 - 897b361500db249c"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "HexagonEnvironment::BuildHolesTable()"
+                  moduleName = "Hexagon"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/yazeedsabil/Documents/hog2/environments/Hexagon.cpp"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "2412"
+                  endingLineNumber = "2412"
+                  offsetFromSymbolStart = "5948">
+               </Location>
+               <Location
+                  uuid = "10E7DE05-316C-46DE-9466-6E5378385D98 - 897b361500db3a4e"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "HexagonEnvironment::BuildHolesTable()"
+                  moduleName = "Hexagon"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/yazeedsabil/Documents/hog2/environments/Hexagon.cpp"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "2398"
+                  endingLineNumber = "2398"
+                  offsetFromSymbolStart = "6860">
+               </Location>
+               <Location
+                  uuid = "10E7DE05-316C-46DE-9466-6E5378385D98 - 897b361500db3a4e"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "HexagonEnvironment::BuildHolesTable()"
+                  moduleName = "Hexagon"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/yazeedsabil/Documents/hog2/environments/Hexagon.cpp"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "2398"
+                  endingLineNumber = "2398"
+                  offsetFromSymbolStart = "6876">
+               </Location>
+            </Locations>
+         </BreakpointContent>
+      </BreakpointProxy>
+   </Breakpoints>
 </Bucket>

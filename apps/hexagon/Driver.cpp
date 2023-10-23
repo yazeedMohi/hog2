@@ -17,6 +17,8 @@
 #include "Hexagon.h"
 #include "Combinations.h"
 #include <filesystem>
+//#include "matplotlibcpp.h"
+//namespace plt = matplotlibcpp;
 
 bool recording = false;
 bool saveAndExit = false;
@@ -489,7 +491,7 @@ void AnalyzeWhichPiecesToUse()
 	he.SetFlippable(toFlip);
 	
 	const std::vector<tPieceName> allPieces =
-    {kHexagon, kElbow, kLine, kMountains, kWrench, kTriangle, kHook, kSnake, kButterfly};//, kTrapezoid, kTrapezoid};//TODOX put swap hex with trapezoid
+    {kElbow, kLine, kMountains, kWrench, kTriangle, kHook, kSnake, kButterfly, kTrapezoid, kTrapezoid};//TODOX put swap hex with trapezoid kHexagon
     
     
 //    printf("%s%s ", pieceNames[allPieces[x]].c_str(), (toFlip[x]==kSide1)?"1":(toFlip[x]==kSide2)?"2":"");
@@ -688,7 +690,9 @@ void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
 			totalGoals = totalExpansions = 0;
 			goals.clear();
 			hss.Reset();
-            hss.dots = he.BitsFromArray({1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35,37,39,41,43,45,47,49,51,53});
+            //1,3,5,7,8,10,12,14,16,17,19,21,23,25,27,29,31,33,35,37,40,42,44,46,49,51,53
+            //0,2,4,6,7,9,11,13,15,16,18,20,22,24,26,28,30,32,34,36,39,41,43,45,48,50,52
+            hss.dots = he.BitsFromArray({1,3,5,7,8,10,12,14,16,17,19,21,23,25,27,29,31,33,35,37,40,42,44,46,49,51,53});
             std::cout<< "Dots\n"<<std::bitset<54>(hss.dots)<<"\n\n";
 			acts.resize(1);
 			he.GetActions(hss, acts[0]);
@@ -698,7 +702,7 @@ void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
             
 //            std::cout << "Generating SVG2..";
             
-            int cutoff = 3;
+            int cutoff = 673;//673;
             
 			while (true)
 			{

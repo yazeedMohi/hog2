@@ -16,6 +16,7 @@
 #include "pbPlots.hpp"
 #include "supportLib.hpp"
 
+#include "SVGUtil.h"
 //#include <boost/serialization/map.hpp>
 //#include <boost/serialization/set.hpp>
 //#include <fstream>
@@ -54,8 +55,7 @@ const int rotateCWTable[54] =
 const int flipTable[54] =
 {47,48,49,50,51,52,53,38,39,40,41,42,43,44,45,46,27,28,29,30,31,32,33,34,35,36,37,16,17,18,19,20,21,22,23,24,25,26,7,8,9,10,11,12,13,14,15,0,1,2,3,4,5,6};
 // 49,39,40,41,42,30
-const int mapPiece[numPieces] = {2, 1, 7, 6, 3, 5, 4, 0, 8, 9};//TODOX 8, 8/i 9/j
-
+const int mapPiece[numPieces] =    {2, 1, 7, 6, 3, 5, 4, 0, 8, 9};
 
 int noFlipMoveCount[numPieces] =
 {
@@ -145,7 +145,7 @@ const uint64_t hole_locations_orig[numPieces][3] = // 0 1
     { // small trapezoids -- symmetric left/right
         1,
         bits(0, 2),//bits(0, 1, 2)
-        2, // bits(1),//bits(0, 1, 2) TODOX could be problematic
+        2, // bits(1),//bits(0, 1, 2)  could be problematic
         
 //        bits(1, 2, 3),//bits(0, 1, 2)
     },
@@ -1027,9 +1027,13 @@ void HexagonEnvironment::GetActions(const HexagonSearchState &nodeID, std::vecto
 // no need to test all patterns btw. Also, keep in mind that the trapezoids are not taken care of in this case
 // shared queue in utils
 // //
-long bestGlobal = INT_MAX, validAGlobal = 0, validBGlobal = 0, validOGlobal = 0, validX1Global = 0, validX2Global = 0, validX3Global = 0;
+long bestGlobal = INT_MAX, validAGlobal = 0, validBGlobal = 0, validOGlobal = 0, validX1Global = 0, validX2Global = 0, validX3Global = 0, mostPatternGoalsGlobal = 0;
 
-const int numPatternsForPiece[numPieces] = {1, 1, 3, 3, 15, 15, 15, 15, 3, 15};
+// parrallelogram can be one
+//const int numPatternsForPiece[numPieces] = {1, 1, 3, 3, 15, 15, 15, 15, 3, 3};
+
+//TODOX one piece is irrelevalnt cuz its not included in any of the solutions
+const int numPatternsForPiece[numPieces] = {1, 1, 3, 3, 4, 4, 4, 4, 3, 3};
 
 // 00 03 30
 
@@ -1082,6 +1086,10 @@ const int numPatternsForPiece[numPieces] = {1, 1, 3, 3, 15, 15, 15, 15, 3, 15};
  9: 144
  10: 180
  
+ 0 - 49
+ 
+ 10 - 5 : 5^10
+ 
  List of pieces and what pieces the share an edge with
  piece 0 { 1, 3 ,4}, piece 1 {0, 5, 7},..
  
@@ -1105,185 +1113,587 @@ const int numPatternsForPiece[numPieces] = {1, 1, 3, 3, 15, 15, 15, 15, 3, 15};
 //                  goalValid = false;
 //                  break;
 
-void HexagonEnvironment::BuildAdjacencies(HexagonSearchState goal, std::vector<int> pieces)
+
+int bestPatternGlobal;
+//TODO: corner touching is currently weird
+std::vector<int> GetNeighboringTrianlges(int loc)
 {
-    std::vector<uint64_t> edgeAdj(goal.cnt);
+    std::vector<int> res;
+    if(!(loc == 6 || loc == 15 || loc == 26 || loc == 37 || loc == 46 || loc == 53))
+    {
+        res.push_back(loc+1);
+    }
+    if(!(loc == 0 || loc == 7 || loc == 16 ||
+           loc == 27 || loc == 38 || loc == 47))
+    {
+        res.push_back(loc-1);
+    }
+    if(loc < 47 && ((loc % 2 == 0 && loc <= 6) || (loc % 2 == 1 && (loc > 6 && loc <= 15)) || (loc % 2 == 0 && (loc > 15 && loc <= 37)) || (loc % 2 == 1 && (loc > 37 && loc <= 46)) || (loc % 2 == 0 && (loc > 46 && loc <= 53))))
+    {
+//        if(loc == 10) std::cout << "\nCATCH!!!!\n\n";
+        res.push_back(loc+(loc < 7 ? 8 : (loc < 16 ? 10 : (loc < 27 ? 11 : (loc < 38 ? 10 : 8)))));
+    }
+    else if(loc > 6 && ((loc % 2 == 1 && loc <= 6) || (loc % 2 == 0 && (loc > 6 && loc <= 15)) || (loc % 2 == 1 && (loc > 15 && loc <= 37)) || (loc % 2 == 0 && (loc > 37 && loc <= 46)) || (loc % 2 == 1 && (loc > 46 && loc <= 53))))
+    {
+        res.push_back(loc-(loc < 16 ? 8 : (loc < 27 ? 10 : (loc < 38 ? 11 : (loc < 47 ? 10 : 8)))));
+    }
     
-        int piece1 = goal.state[p].piece;
-        
-        int location1 = goal.state[p].location;
-        
-    bool edgeAdj = false, cornerAdj = false;
-    
-    int i,p,q;
+    return res;
+}
+
+void HexagonEnvironment::BuildAdjacencies(HexagonSearchState &goal)
+{
+//    std::cout << "Building adjacencies for: " << goal.index << "\n";
+    int i, j, k, p, q;
+    bool edgeAdjacent, cornerAdjacent;
     
     for(p = 0; p < goal.cnt; p++)
     {
         std::vector<int> bits1;
         for (i = 0; i < 54; i++)
         {
-            if((goal.state[p].location>>i)&&1)
+            if((locations[goal.state[p].piece][goal.state[p].location]>>i)&1)
                 bits1.push_back(i);
         }
         
         for(q = p+1; q < goal.cnt; q++)
         {
+            edgeAdjacent = false;
+            cornerAdjacent = false;
+            
             std::vector<int> bits2;
             for (i = 0; i < 54; i++)
             {
-                if((goal.state[q].location>>i)&&1)
+                if((locations[goal.state[q].piece][goal.state[q].location]>>i)&1)
                     bits2.push_back(i);
             }
             
-            std::vector<int> bits1(6);
-            
-        }
-    }
-}
-
-void HexagonEnvironment::ColorConstraintSpaceSearchParallel(std::vector<HexagonSearchState> goals, std::vector<int> pieces, std::vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int threadNum, int totalThreads)
-{
-    long best = goals.size(), validA = 0, validB = 0, validX1 = 0, validX2 = 0, validX3 = 0, validO = 0;
-    std::vector<double> localInterestingPatterns(interestingPatterns.size());
-    uint64_t patternGoals = 0;
-    bool debug = false;//threadNum==0;//pattern % 1000000 == 0;
-    bool goalValid, valid;
-    int location, loc, piece;
-    int size = goals.size();
-    int i,j,p,y;
-    int x, x1, x2;
-    HexagonSearchState goal;
-    
-    std::vector<std::vector<int>> colors(10);
-    
-    std::vector<bool> must_be_edge_adjacent(100);
-    std::vector<bool> must_not_be_edge_adjacent(100);
-    std::vector<bool> must_be_corner_adjacent(100);
-    std::vector<bool> must_not_be_corner_adjacent(100);
-    
-    std::vector<bool> edgeAdjacencies(100);
-    std::vector<bool> cornerAdjacencies(100);
-    
-    //for i  0  -> clrs
-    //      for p : c[i]
-    //          for j i+1 -> clrs
-    //              for q : c[j]
-    //                  if((edgeAdjacent(p,q) && must_not_be_edge_adjacent[i,j])
-    //                      || (!edgeAdjacent(p,q) && must_be_edge_adjacent[i,j])
-    //                      || (cornerAdjacent(p,q) && must_not_be_corner_adjacent[i,j])
-    //                      || (!cornerAdjacent(p,q) && must_be_corner_adjacent[i,j]))
-    //                  goalValid = false;
-    //                  break;
-    .
-    for (i = 0; i < colors.size(); i++)
-    {
-        for (p = 0; p < colors[i].size(); p++)
-        {
-            for (j = i+1; j < colors.size(); j++)
+            for (i = 0; i < bits1.size(); i++)
             {
-                for (q = 0; q < colors[j].size(); q++)
+                std::vector<int> neighbors = GetNeighboringTrianlges(bits1[i]);
+                for (j = 0; j < bits2.size(); j++)
                 {
-                    if((edgeAdjacencies[p + 10 * q] && must_not_be_edge_adjacent[i + 10 * j])
-                      || (!edgeAdjacencies[p + 10 * q] && must_be_edge_adjacent[i + 10 * j])
-                      || (cornerAdjacencies[p + 10 * q] && must_not_be_corner_adjacent[i + 10 * j])
-                      || (!cornerAdjacencies[p + 10 * q] && must_be_corner_adjacent[i + 10 * j]))
+                    if(find(neighbors.begin(), neighbors.end(), bits2[j]) != neighbors.end())
                     {
-                        goalValid = false;
+                        edgeAdjacent = true;
+//                        goal.edgeAdjacencies[goal.state[p].piece+10*goal.state[q].piece] = true;
+//                        goal.edgeAdjacencies[goal.state[q].piece+10*goal.state[p].piece] = true;
+                        goal.edgeAdjacencies[p+11*q] = true;
+                        goal.edgeAdjacencies[q+11*p] = true;
                         break;
                     }
                 }
-                if(!goalValid) break;
+                
+                if(edgeAdjacent)
+                {
+                    break;
+                }
             }
-            if(!goalValid) break;
+            
+            if(edgeAdjacent)
+            {
+                continue;
+            }
+            
+//            std::cout << "NOT edge adjacent " << pieceNames[goal.state[p].piece] << "|"<< pieceNames[goal.state[q].piece] << "  " << goal.state[p].piece << "|"<< goal.state[q].piece << "\n";
+            
+            for (i = 0; i < bits1.size(); i++)
+            {
+                std::vector<int> neighbors = GetNeighboringTrianlges(bits1[i]);
+                
+                for (k = 0; k < neighbors.size(); k++) {
+                    std::vector<int> secondNeighbors = GetNeighboringTrianlges(neighbors[k]);
+                    for (j = 0; j < bits2.size(); j++)
+                    {
+                        if(find(secondNeighbors.begin(), secondNeighbors.end(), bits2[j]) != secondNeighbors.end())
+                        {
+                            cornerAdjacent = true;
+//                            goal.cornerAdjacencies[goal.state[p].piece+10*goal.state[q].piece] = true;
+//                            goal.cornerAdjacencies[goal.state[q].piece+10*goal.state[p].piece] = true;
+                            goal.cornerAdjacencies[p+11*q] = true;
+                            goal.cornerAdjacencies[q+11*p] = true;
+//                            std::cout<<"corners touching at " << bits2[j] << " " << " " << bits1[i] << " " << neighbors[k] << " " << secondNeighbors[0] << " " << secondNeighbors[1] << " " << (secondNeighbors.size() == 3 ? secondNeighbors[2] : -1) << "\n";
+                            break;
+                        }
+                    }
+                    if(cornerAdjacent) break;
+                }
+                if(cornerAdjacent) break;
+            }
+            
+//            if(cornerAdjacent)
+//                std::cout << "Corner adjacent: " << pieceNames[goal.state[p].piece] << "|"<< pieceNames[goal.state[q].piece] << "  " << goal.state[p].piece << "|"<< goal.state[q].piece << "\n";
         }
-        if(!goalValid) break;
     }
-    
-    std::vector<double> goalxs(10);
-    
-//    for (uint64_t pattern = threadNum; pattern < numPatterns; pattern += totalThreads)
-//    {
-////        bool basic_debug = pattern % 1000000 == 0;
-////        bool debug = false;//pattern % 1000000 == 0;
-//        patternGoals = 0;
-//        if(pattern % 1000000 == 0)
-//        {
-//            std::cout << "Pattern " << pattern << " / " << numPatterns << " ("<< ((pattern*100)/numPatterns) << "%)" << "\n";
-//        }
-//        
-////        int i = -1;
-//        
-//        for (i = 0; i < size; i++)
-//        {
-//            goal = goals[i];
-////            i++;
-//            goalValid = true;
-//            
-//            if(debug)
-//            {
-//                std::cout << "Goal pieces " << goal.cnt << "\n";
-//            }
-//            
-//            for(p = 0; p < goal.cnt; p++)
-//            {
-//                piece = goal.state[p].piece;
-//                
-//                location = goal.state[p].location;
-//                
-//                valid = false;
-//                
-//                uint64_t div = 1;
-//                
-//                for (j = 0; j < piece; j++) {
-//                    div *= numPatternsForPiece[j];
-//                }
-//                
-//                x = (pattern / div) % numPatternsForPiece[piece];
-//                
-//                goalValid = false;
-//                break;
-//            }
-//                        
-//            if(goalValid) patternGoals++;
-//        }
-//        
-//        localInterestingPatterns[patternGoals]++;
-//    }
-//    
-//    patternLock.lock();
-//    
-//    for(i = 0; i < interestingPatterns.size(); i++)
-//        interestingPatterns[i] += localInterestingPatterns[i];
-//    
-//    patternLock.unlock();
-//    
-//    std::cout<<"THREAD (" << threadNum << ") COMPLETE\n";
 }
 
-void HexagonEnvironment::ConstraintSpaceSearchParallel(std::vector<HexagonSearchState> goals, std::vector<int> pieces, std::vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int threadNum, int totalThreads)
+
+//                if((!(bits1[i] == 6 || bits1[i] == 15 || bits1[i] == 26 || bits1[i] == 37 || bits1[i] == 46 || bits1[i] == 53) && find(bits2.begin(), bits2.end(), bits1[i]+1) == bits2.end())
+//                   ||
+//                   (!(bits1[i] == 0 || bits1[i] == 7 || bits1[i] == 16 ||
+//                      bits1[i] == 27 || bits1[i] == 38 || bits1[i] == 47) && find(bits2.begin(), bits2.end(), bits1[i]-1) == bits2.end())
+//                   ||
+//                   (bits1[i] % 2 == 0 && bits1[i] < 47 && find(bits2.begin(), bits2.end(), bits1[i]+(bits1[i] < 7 ? 8 : (bits1[i] < 16 ? 10 : (bits1[i] < 27 ? 11 : (bits1[i] < 38 ? 10 : 8))))) == bits2.end())
+//                   ||
+//                   (bits1[i] % 2 == 1 && bits1[i] > 6 && find(bits2.begin(), bits2.end(), bits1[i]-(bits1[i] < 16 ? 8 : (bits1[i] < 27 ? 10 : (bits1[i] < 38 ? 11 : (bits1[i] < 47 ? 10 : 8))))) == bits2.end()))
+//                {
+//                    goal.edgeAdjacencies[p+10*q] = true;
+//                    goal.edgeAdjacencies[q+10*p] = true;
+//                    break;
+//                }
+
+
+void HexagonEnvironment::ColorConstraintSpaceSearchParallel(std::vector<HexagonSearchState> goals, std::vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int numColors, int threadNum, int totalThreads)
 {
-    long best = goals.size(), validA = 0, validB = 0, validX1 = 0, validX2 = 0, validX3 = 0, validO = 0;
     std::vector<double> localInterestingPatterns(interestingPatterns.size());
     uint64_t patternGoals = 0;
-    bool debug = false;//threadNum==0;//pattern % 1000000 == 0;
-    bool goalValid, valid;
-    int location, loc, piece;
+    bool goalValid;
     int size = goals.size();
-    int i,j,p,y;
-    int x, x1, x2;
+    int i,j,k,p,q,g;
+    int constraint;
     HexagonSearchState goal;
+    int adjacencyPortion;
     
-    std::vector<double> goalxs(10);
+    std::vector<std::vector<int>> colors(numColors);
+    
+    for (i = 0; i < 10; i++) {
+        colors[i/5].push_back(i);
+    }
+    
+    // 2 colors
+    
+    // 1024 * 5
+    
+    std::cout << threadNum << " " << numPatterns << " " << totalThreads;
     
     for (uint64_t pattern = threadNum; pattern < numPatterns; pattern += totalThreads)
     {
-//        bool basic_debug = pattern % 1000000 == 0;
-//        bool debug = false;//pattern % 1000000 == 0;
+        for (i = 0; i < numColors; i++) {
+            colors[i].clear();
+        }
+        
+        k = pow(numColors, pieces.size());
+        q = pattern % k;
+        
+        for (i = 0; i < 10; i++) {
+            p = q / pow(numColors, i);
+            p %= numColors;
+            colors[p].push_back(i);
+        }
+        
+        adjacencyPortion = pattern / pow(numColors, pieces.size());
+        
         patternGoals = 0;
         if(pattern % 1000000 == 0)
         {
             std::cout << "Pattern " << pattern << " / " << numPatterns << " ("<< ((pattern*100)/numPatterns) << "%)" << "\n";
         }
+        
+        for (g = 0; g < size; g++)
+        {
+            goal = goals[g];
+            goalValid = true;
+            k = -1;
+
+            for (i = 0; i < numColors; i++)
+            {
+                for (j = i+1; j < numColors; j++)
+                {
+                    k++;
+                    constraint = adjacencyPortion / pow(5, k);
+                    constraint %= 5;
+                    for (p = 0; p < colors[i].size(); p++)
+                    {
+                        for (q = 0; q < colors[j].size(); q++)
+                        {
+                            if((goal.edgeAdjacencies[p + 10 * q] && constraint == 1)
+                              || (!goal.edgeAdjacencies[p + 10 * q] && constraint == 2)
+                              || (goal.cornerAdjacencies[p + 10 * q] && constraint == 3)
+                              || (!goal.cornerAdjacencies[p + 10 * q] && constraint == 4))
+                            {
+                                std::cout<<"INVALIDATED\n";
+                                goalValid = false;
+                                break;
+                            }
+                        }
+                        if(!goalValid) break;
+                    }
+                    if(!goalValid) break;
+                }
+                if(!goalValid) break;
+            }
+                        
+            if(goalValid) patternGoals++;
+        }
+        
+        localInterestingPatterns[patternGoals]++;
+    }
+    
+    patternLock.lock();
+    
+    for(i = 0; i < interestingPatterns.size(); i++)
+        interestingPatterns[i] += localInterestingPatterns[i];
+    
+    patternLock.unlock();
+    
+    std::cout<<"THREAD (" << threadNum << ") COMPLETE\n";
+}
+
+// 0/1 0/2 0/3 0/4 1/2 1/3 1/4 2/3 2/4 3/4
+int comb = 5;
+
+void HexagonEnvironment::ColorConstraintSpaceSearchParallelExperiment(std::vector<HexagonSearchState> &goals, std::vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int numColors, int threadNum, int totalThreads, std::vector<std::vector<HexagonSearchState>> &selectedSolutions)
+{
+    std::vector<double> localInterestingPatterns(interestingPatterns.size());
+    std::vector<int> pieces;
+    uint64_t patternGoals = 0;
+    bool goalValid;
+    int size = goals.size(), mostPatternGoals = 99999, bestPattern;
+    mostPatternGoalsGlobal = 999999;
+    int i,j,k,p,q,g;
+    int constraint;
+    HexagonSearchState goal;
+    int adjacencyPortion;
+    
+    std::vector<std::vector<int>> colors(numColors);
+    
+    int p1 = comb % 4, p2 = comb / 4;
+    
+    if(p1 == p2) p2 = 3;
+    
+    std::cout<< "COMB COMP: " << p1 <<" " << p2 << "\n";
+    
+    
+//    const int mapPiece[numPieces] =    {2, 1, 7, 6, 3, 5, 4, a, 8, 9};
+//    const int revMapPiece[numPieces+1] = {7, 1, 0, 4, 6, 5, 3, 2, 8, 9, 8};// 8, 8/i 9/j
+    
+    colors[0].push_back(0); // all sym
+    colors[0].push_back(1);
+    
+    colors[1].push_back(3); // rot sym
+    colors[1].push_back(9);
+    
+    colors[2].push_back(2); // flip sym
+    colors[2].push_back(8);
+    colors[2].push_back(8);
+    
+    colors[3].push_back(p1+4);
+    colors[3].push_back(p2+4);
+    
+    for (i = 0; i < 4; i++) {
+        if(i != p1 && i != p2)
+            colors[4].push_back(i+4);
+    }
+    
+    numPatterns = numColors * (numColors-1) / 2;
+    int constraintType = 1;
+    
+//        for (i = 0; i < numColors; i++) {
+//            colors[i].clear();
+//        }
+//
+//        k = pow(numColors, pieces.size());
+//        q = pattern % k;
+//
+//        for (i = 0; i < 10; i++) {
+//            p = q / pow(numColors, i);
+//            p %= numColors;
+//            colors[p].push_back(i);
+//        }
+        
+//        adjacencyPortion = pattern;// / k;
+        
+//        if(pattern % 1000000 == 0)
+//        {
+//            std::cout << "Pattern " << pattern << " / " << numPatterns << " ("<< ((pattern*100)/numPatterns) << "%)" << "\n";
+//        }
+        
+        for (g = 0; g < size; g++)
+        {
+            goal = goals[g];
+            patternGoals = 0;
+            pieces.clear();
+            for (p = 0; p < goal.cnt; p++) {
+                pieces.push_back(goal.state[p].piece);
+            }
+            
+            for (constraintType = 1; constraintType < 5; constraintType++)
+//            constraintType = 4;
+            {
+                
+                for (int pattern = 0; pattern < /*numPatterns*/numColors; pattern++)
+                {
+                    //TODOX add another loop for pattern 2 and pass in case they're equal
+                    //                    std::cout<<"\n\n\n\n\n\n\n\nColor: "<<pattern<<"\n";
+                    goalValid = constraintType == 1 || constraintType == 3;
+                    k = -1;
+                    
+                    //                    for (i = 0; i < numColors; i++)
+                    i = pattern;
+                    {
+                        //                        for (j = 0/*i+1*/; j < numColors; j++)
+                        j = pattern;
+                        {
+                            //                            k++;
+                            //                            if(k != pattern) continue;
+                            if(i == j)
+                            {
+                                int numPiecesOfClr = 0;
+                                for (int tp : pieces) {
+                                    if(find(colors[i].begin(), colors[i].end(), tp) != colors[i].end())
+                                        numPiecesOfClr++;
+                                }
+                                if(numPiecesOfClr < 2) continue;
+                            }
+                            //                            std::cout << constraintType << " " << i << " " << j << " " << (i * numPieces + j) << " " << ((i * numPieces + j) * 10 + constraintType) << colors[i].size() << " " << colors[j].size() << "\n";
+                            goal.constraints.push_back((i * numPieces + j) * 10 + constraintType);
+//                            if(goal.allConstraints.size() > 1) std::cout<<"\n\nMOREE\n\n\n";
+                            constraint = constraintType;//adjacencyPortion / pow(5, k);
+                            //                    constraint %= 5;
+                            bool lookingForFirstTrapezoid = true;
+                            for (p = 0; p < colors[i].size(); p++)
+                            {
+                                int p1 = colors[i][p];
+                                int actualP = -1;
+                                bool firstTrapezoid = true;
+                                for (int pp = 0; pp < goal.cnt; pp++)
+                                {
+                                    if(goal.state[pp].piece == p1)
+                                    {
+                                        if(p1 == 8 && lookingForFirstTrapezoid)
+                                            lookingForFirstTrapezoid = false;
+                                        else if(p1 == 8 && !lookingForFirstTrapezoid && firstTrapezoid)
+                                        {
+                                            firstTrapezoid = false;
+                                            continue;
+                                        }
+                                        
+                                        actualP = pp;
+                                        break;
+                                    }
+                                }
+                                bool lookingForFirstQTrapezoid = true;
+                                for (q = 0; q < colors[j].size(); q++)
+                                {
+                                    int q1 = colors[j][q];
+                                    int actualQ = -1;
+                                    bool firstQTrapezoid = true;
+                                    for (int qq = 0; qq < goal.cnt; qq++)
+                                    {
+                                        if(goal.state[qq].piece == q1)
+                                        {
+                                            if(q1 == 8 && lookingForFirstQTrapezoid)
+                                                lookingForFirstQTrapezoid = false;
+                                            if(q1 == 8 && !lookingForFirstQTrapezoid && firstQTrapezoid)
+                                            {
+                                                firstQTrapezoid = false;
+                                                continue;
+                                            }
+                                            
+                                            actualQ = qq;
+                                            break;
+                                        }
+                                    }
+                                    
+                                    //                                    int p1 = colors[i][p];
+                                    //                                    int p2 = colors[j][q];
+                                    
+                                    if(actualP == actualQ || actualP == -1 || actualQ == -1)
+                                    {
+                                        //                                        std::cout<<"INVALIDATED??" << colors[i].size() << " " <<  "\n";
+                                        //                                        if(colors[i].size() == 1)
+                                        //                                        {
+                                        //                                            std::cout<<"INVALIDATED++\n";
+                                        //                                            goalValid = false;
+                                        //                                            break;
+                                        //                                        }
+                                        continue;
+                                    }
+                                    
+                                    //                                    bool b1 = (find(pieces.begin(), pieces.end(), p1) == pieces.end());
+                                    //                                    bool b2 = (find(pieces.begin(), pieces.end(), p1) == pieces.end());
+                                    //                                    std::cout << b1 << " " << b2 << "\n";
+                                    
+                                    //                                    if(find(pieces.begin(), pieces.end(), p1) == pieces.end() || find(pieces.begin(), pieces.end(), q1) == pieces.end())
+                                    //                                    if(actualP == -1 || actualQ == -1)
+                                    //                                        continue;
+                                    
+                                    //                                    std::cout << "goal adj " << p1 << " " << p2 << " "<< goal.edgeAdjacencies[p1 + 10 * p2] << " " << goal.cornerAdjacencies[p1 + 10 * p2] << " | " << constraint << "\n";
+                                    
+                                    //                                    bool invalid1 = ( goal.edgeAdjacencies  [p1 + 10 * p2] && constraint == 1);
+                                    //                                    bool anyInvalid =(   ( goal.edgeAdjacencies  [p1 + 10 * p2] && constraint == 1)
+                                    //                                                    || (!goal.edgeAdjacencies  [p1 + 10 * p2] && constraint == 2)
+                                    //                                                    || ( goal.cornerAdjacencies[p1 + 10 * p2] && constraint == 3)
+                                    //                                                    || (!goal.cornerAdjacencies[p1 + 10 * p2] && constraint == 4));
+                                    
+                                    //                                    std::cout << "invalid " << invalid1 << " " << anyInvalid << "\n";
+                                    
+                                    if(   ( goal.edgeAdjacencies  [actualP + 11 * actualQ] && constraint == 1)
+                                       || (!goal.edgeAdjacencies  [actualP + 11 * actualQ] && constraint == 2)
+                                       || ((goal.edgeAdjacencies  [actualP + 11 * actualQ] || goal.cornerAdjacencies[actualP + 11 * actualQ]) && constraint == 3)
+                                       || ((goal.edgeAdjacencies [actualP + 11 * actualQ]  ||!goal.cornerAdjacencies[actualP + 11 * actualQ]) && constraint == 4))
+                                    {
+                                        //                                        std::cout<<"INVALIDATED\n";
+                                        goalValid = false;
+                                        break;
+                                    }
+                                    if((goal.edgeAdjacencies[actualP + 11 * actualQ] && constraint == 2) || ((!goal.edgeAdjacencies[actualP + 11 * actualQ] && goal.cornerAdjacencies[actualP + 11 * actualQ]) && constraint == 4))
+                                        goalValid = true;
+                                }
+                                if(!goalValid) break;
+                            }
+                            //                            if(!goalValid) break;
+                        }
+                        //                        if(!goalValid) break;
+                    }
+                    
+                    if(goalValid)
+                    {
+                        patternGoals++;
+                        
+                        //                        std::cout<<"GOAL VALID [" << goal.index <<"] " <<constraintType << " " << selectedSolutions[constraintType].size() << "\n";
+                        
+                        goals[g].allConstraints.push_back(goal.constraints[0]);
+                        for (auto t : goal.constraints) {
+                            
+                            HexagonSearchState newGoal;
+                            newGoal.state = goal.state;
+                            newGoal.cnt = goal.cnt;
+                            newGoal.bits = goal.bits;
+                            newGoal.index = goal.index;
+                            
+                            newGoal.edgeAdjacencies = goal.edgeAdjacencies;
+                            newGoal.cornerAdjacencies = goal.cornerAdjacencies;
+                            
+                            newGoal.constraints.push_back(t);
+                            newGoal.allConstraints = goals[g].allConstraints;
+                            
+                            selectedSolutions[constraintType].push_back(newGoal);
+                        }
+                        
+                        //
+                        //                        Graphics::Display d;
+                        //
+                        //                        std::string fileName = "/Users/yazeedsabil/Desktop/gen_puzzles/" + std::to_string(constraintType) + "/" + std::to_string(g)+ ".svg";
+                        //
+                        //                    //    std::cout << fileName;
+                        //                        Hexagon h;
+                        //                        HexagonState hs;
+                        //                        ConvertToHexagonState(goal, hs);
+                        //                        h.Draw(d);
+                        //                        h.Draw(d, hs);
+                        //                        MakeSVG(d, fileName.c_str(), 1024, 1024);
+                        //                        break;
+                    }
+                    
+                    goal.constraints.clear();
+                    
+                    std::cout<<"FACTS " << goals[g].allConstraints.size() << "\n";
+                }
+            }
+        /*
+         
+         for (g = 0; g < size; g++)
+         {
+             goal = goals[g];
+             goalValid = true;
+             k = -1;
+
+             for (i = 0; i < numColors; i++)
+             {
+                 for (j = i+1; j < numColors; j++)
+                 {
+                     k++;
+                     constraint = k == pattern ? constraintType : 0;//adjacencyPortion / pow(5, k);
+ //                    constraint %= 5;
+                     for (p = 0; p < colors[i].size(); p++)
+                     {
+                         for (q = 0; q < colors[j].size(); q++)
+                         {
+                             if((goal.edgeAdjacencies[p + 10 * q] && constraint == 1)
+                               || (!goal.edgeAdjacencies[p + 10 * q] && constraint == 2)
+                               || (goal.cornerAdjacencies[p + 10 * q] && constraint == 3)
+                               || (!goal.cornerAdjacencies[p + 10 * q] && constraint == 4))
+                             {
+ //                                std::cout<<"INVALIDATED\n";
+                                 goalValid = false;
+                                 break;
+                             }
+                         }
+                         if(!goalValid) break;
+                     }
+                     if(!goalValid) break;
+                 }
+                 if(!goalValid) break;
+             }
+                         
+             if(goalValid) patternGoals++;
+         }
+         */
+        
+        localInterestingPatterns[g] = patternGoals;
+        if(patternGoals < mostPatternGoals) { mostPatternGoals = patternGoals; bestPattern = g; }
+//        if(patternGoals > mostPatternGoals) mostPatternGoals = patternGoals;
+    }
+    
+    patternLock.lock();
+    
+    if(mostPatternGoals < mostPatternGoalsGlobal) { mostPatternGoalsGlobal = mostPatternGoals; bestPatternGlobal = bestPattern; }
+    
+    for(i = 0; i < interestingPatterns.size(); i++)
+        interestingPatterns[i] += localInterestingPatterns[i];
+    
+    for (i = 0; i < goals.size(); i++) {
+        if(goals[i].allConstraints.size() > 1)
+        {
+            selectedSolutions[5].push_back(goals[i]);
+            std::cout << "NOW WE HAVE " << selectedSolutions[5].size();
+        }
+    }
+    
+    patternLock.unlock();
+    
+//    std::cout<<"THREAD (" << threadNum << ") COMPLETE\n";
+}
+std::vector<HexagonSearchState> filteredGoals;
+void HexagonEnvironment::ConstraintSpaceSearchParallel(std::vector<HexagonSearchState> goals, std::vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int threadNum, int totalThreads)
+{
+    long best = goals.size(), validA = 0, validB = 0, validX1 = 0, validX2 = 0, validX3 = 0, validO = 0,mostPatternGoals=0, bestPattern;
+    std::vector<double> localInterestingPatterns(interestingPatterns.size());
+    uint64_t patternGoals = 0;
+    bool debug = false;//threadNum==0;//pattern % 1000000 == 0;
+    bool goalValid, valid;
+    int location, loc, piece;
+    int size = goals.size();
+    int i,j,p,y;
+    int x, x1, x2, p1, p2;
+    HexagonSearchState goal;
+    
+    std::vector<double> goalxs(10);
+    
+    p1 = comb % 4;
+    p2 = comb / 4;
+    
+    if(p1 == p2) p2 = 3;
+    
+    p1+=4;
+    p2+=4;
+//
+//    if(threadNum == 0)
+//        std::cout << "COMB COMPONENTS " << p1 << " " << p2 << "\n";
+//
+    
+    // hole patterns -> max solutions + max min color-constraint-configs solution
+//    for (uint64_t pattern = threadNum; pattern < numPatterns; pattern += totalThreads)
+    uint64_t pattern = 432;
+    {
+//        bool basic_debug = pattern % 1000000 == 0;
+//        bool debug = false;//pattern % 1000000 == 0;
+        patternGoals = 0;
+//        if(pattern % 1000000 == 0)
+//        {
+//            std::cout << "Pattern " << pattern << " / " << numPatterns << " ("<< ((pattern*100)/numPatterns) << "%)" << "\n";
+//        }
         
 //        int i = -1;
         
@@ -1295,7 +1705,7 @@ void HexagonEnvironment::ConstraintSpaceSearchParallel(std::vector<HexagonSearch
             
             if(debug)
             {
-                std::cout << "Goal pieces " << goal.cnt << "\n";
+                std::cout << "Goal pieces " << goal.cnt << " " << i << "/" << size << "\n";
             }
             
             for(p = 0; p < goal.cnt; p++)
@@ -1325,8 +1735,10 @@ void HexagonEnvironment::ConstraintSpaceSearchParallel(std::vector<HexagonSearch
                 
                 x = (pattern / div) % numPatternsForPiece[piece];
                 
-                if(piece == 3)
+                if(piece == 3 || piece == 9)
                 {
+                    // flip odd, even, no constraint
+                    // rot: one side fits and not the other, or neither
                     x1 = x % 2 == 0 ? 0 : 3;
                     x2 = x / 2 == 0 ? 0 : 3;
                 }
@@ -1338,13 +1750,26 @@ void HexagonEnvironment::ConstraintSpaceSearchParallel(std::vector<HexagonSearch
                     }
                     else
                     {
-                        x1 = x / 4;
-                        x2 = x % 4;
+                        if(p1 == piece || p2 == piece)
+                        {
+                            // no - o/e
+                            x1 = x < 2 ? (x+1) : 3;
+                            x2 = x > 1 ? (x-1) : 3;
+                        }
+                        else
+                        {
+                            // o/e e/o
+                            x1 = (x / 2) + 1;
+                            x2 = (x % 2) + 1;
+                        }
+                        
+//                        x1 = x / 4;
+//                        x2 = x % 4;
                     }
                 }
                 
 //                goalxs[piece] = x;
-//                continue;// TODOX remove
+//                continue;//  remove
                 //TODO test with array of xs for each piece and print all of them for all puzzles
                 
 //                if(debug)
@@ -1360,11 +1785,14 @@ void HexagonEnvironment::ConstraintSpaceSearchParallel(std::vector<HexagonSearch
                         continue;
                     }
                     
-                    if(numPatternsForPiece[piece] == 3 && x2 == 0)
+                    if((numPatternsForPiece[piece] == 3 && !(piece == 3 || piece == 9)) && x2 == 0)
                     {
                         validX3++;
                         continue;
                     }
+                    
+                    // 100 edge constrained
+                    //
                     
                     if(x1 != 3)
                     {
@@ -1446,8 +1874,24 @@ void HexagonEnvironment::ConstraintSpaceSearchParallel(std::vector<HexagonSearch
                 break;
             }
                         
-            if(goalValid) patternGoals++;
-//            break;//TODOX remove
+            if(goalValid) { patternGoals++; filteredGoals.push_back(goals[i]);
+                
+                
+//                Graphics::Display d;
+//
+//                std::string fileName = "/Users/yazeedsabil/Desktop/gen_puzzles/0/" + std::to_string(filteredGoals.size()-1) + ".svg";
+//
+//            //    std::cout << fileName;
+//                Hexagon h;
+//                HexagonState hs;
+//                ConvertToHexagonState(goals[i], hs);
+//                h.Draw(d);
+//                h.Draw(d, hs);
+//                MakeSVG(d, fileName.c_str(), 1024, 1024);
+                
+            }
+            
+//            break;// remove
         }
         
 //        if(patternGoals == 0)
@@ -1463,6 +1907,7 @@ void HexagonEnvironment::ConstraintSpaceSearchParallel(std::vector<HexagonSearch
 //            }}
 //        std::cout<<patternGoals<<"\n";
         localInterestingPatterns[patternGoals]++;
+        if(patternGoals > mostPatternGoals) { mostPatternGoals = patternGoals; bestPattern = pattern; }
 //        std::cout<<"2";
     }
     
@@ -1478,9 +1923,11 @@ void HexagonEnvironment::ConstraintSpaceSearchParallel(std::vector<HexagonSearch
     validX3Global+=validX3;
     validOGlobal+=validO;
     
+    if(mostPatternGoals > mostPatternGoalsGlobal) { mostPatternGoalsGlobal = mostPatternGoals; bestPatternGlobal = bestPattern; }
+    
     patternLock.unlock();
     
-    std::cout<<"THREAD (" << threadNum << ") COMPLETE\n";
+//    std::cout<<"THREAD (" << threadNum << ") COMPLETE\n";
 }
 
 // eliminate invalid pieces
@@ -1501,6 +1948,7 @@ void HexagonEnvironment::ConstraintSpaceSearchParallel(std::vector<HexagonSearch
 // clear: 0, odd: 1, even: 2, full: 3
 
 
+//std::string pieceNames[numPieces] = {"hexagon", "butterfly","elbow","line","mountains","wrench","triangle","hook","trapezoid","snake"};
 //    kHexagon = 0
 //    kButterfly = 1
 //    kElbow = 2
@@ -1512,72 +1960,323 @@ void HexagonEnvironment::ConstraintSpaceSearchParallel(std::vector<HexagonSearch
 //    kTrapezoid = 8
 //    kSnake = 9
 
-void HexagonEnvironment::ConstraintSpaceSearch(std::vector<HexagonSearchState> goals, std::vector<int> pieces)
+void HexagonEnvironment::ConstraintSpaceSearch(std::vector<HexagonSearchState> goals, std::vector<std::vector<HexagonSearchState>> &selectedPuzzles)
 {
-//    std::vector<uint64_t> interestingPatterns;
-    int THREADS = 8;
+    int THREADS = 1;
     int THRESHOLD = std::ceil(goals.size()/2.0);
-
-    uint64_t numPatterns = 1;//pow(14, pieces.size());
     
-    for (int i : pieces) {
+    int numColors = 5;
+
+    uint64_t numPatterns = 1;
+    
+    for (int i = 0; i < numPieces; i++) {
         numPatterns *= numPatternsForPiece[i];
     }
     
-    std::vector<std::thread> v;
+//    numPatterns *= (numColors-1) * (numColors) / 2;
+//    numPatterns *= 5;
     
-    std::vector<double> interestingPatterns(goals.size()+1);
+//    numPatterns *= pow(numColors, pieces.size());
     
-    std::cout<<"SIZE " << interestingPatterns.size() << "\n";
-
-    for (int i = 0; i < THREADS; i++) {
-//        std::thread{&HexagonEnvironment::ConstraintSpaceSearchParallel, this, goals, pieces, std::ref(interestingPatterns), THRESHOLD, numPatterns, i, THREADS}.detach();
-        v.emplace_back(&HexagonEnvironment::ConstraintSpaceSearchParallel, this, goals, pieces, std::ref(interestingPatterns), THRESHOLD, numPatterns, i, THREADS);
-    }
     
-    for (auto& t : v) {
-        t.join();
-    }
-    
-//    std::cout << "Closest distance to half is " << bestGlobal << " | with half being " << THRESHOLD << " | number of patterns within best distance is " << (interestingPatterns.size()/1) << " out of " << numPatterns  << "\n";
-    
-    std::cout << "A: " << validAGlobal << " B: " << validBGlobal << " X1: " << validX1Global << " X2: " << validX2Global << " X3: " << validX3Global << " O: " << validOGlobal << "\n";
-    
-    for (int i = 0; i < interestingPatterns.size(); i++) {
-        std::cout << "Goals: " << i << " patterns: " << interestingPatterns[i] << "\n";
-    }
-    
-    std::vector<double> nums(goals.size()+1);
-    
-    for (int i = 0; i < nums.size(); i++) {
-        nums[i] = i;
-    }
-    
-    bool success;
-    StringReference *errorMessage = CreateStringReferenceLengthValue(0, L' ');
-    RGBABitmapImageReference *imageReference = CreateRGBABitmapImageReference();
-
-//    std::vector<double> xs{-2, -1, 0, 1, 2};
-//    std::vector<double> ys{2, -1, -2, -1, 2};
-
-    success = DrawScatterPlot(imageReference, 1024, 1024, &nums, &interestingPatterns, errorMessage);
-
-    if(success){
-        std::vector<double> *pngdata = ConvertToPNG(imageReference->image);
-        WriteToFile(pngdata, "/Users/yazeedsabil/Desktop/svgs_clean/0example1.png");
-        DeleteImage(imageReference->image);
-        std::cout << "image gen success";
-    }else{
-        std::cerr << "Error: ";
-        for(wchar_t c : *errorMessage->string){
-            std::wcerr << c;
-        }
-        std::cerr << std::endl;
+//    for (comb = 0; comb < 12; comb++)
+    comb = 5;
+    {
+        mostPatternGoalsGlobal = 0;
+        std::cout << "\n------------------------------------------------------\n";
+        std::cout << "Combination: " << comb;
+        std::cout << "\n------------------------------------------------------\n\n";
+        std::vector<std::thread> v;
+        std::vector<std::thread> v2;
         
-        std::cout << errorMessage->string;
-    }
+        std::vector<double> interestingPatterns(goals.size()+1);
+        
+        for (int i = 0; i < THREADS; i++) {
+            v.emplace_back(&HexagonEnvironment::ConstraintSpaceSearchParallel, this, goals, std::ref(interestingPatterns), THRESHOLD, numPatterns, i, THREADS);
+        }
+        
+        for (auto& t : v) {
+            t.join();
+        }
+    
+        
+//        filteredGoals = goals;//TODOX
+        
+        selectedPuzzles[0] = filteredGoals;
+        
+        for (int i = 0; i < THREADS; i++) {
+            v2.emplace_back(&HexagonEnvironment::ColorConstraintSpaceSearchParallelExperiment, this, std::ref(filteredGoals), std::ref(interestingPatterns), THRESHOLD, numPatterns, numColors, i, THREADS, std::ref(selectedPuzzles));
+        }
 
-    FreeAllocations();
+        for (auto& t : v2) {
+            t.join();
+        }
+
+        //    std::cout << "A: " << validAGlobal << " B: " << validBGlobal << " X1: " << validX1Global << " X2: " << validX2Global << " X3: " << validX3Global << " O: " << validOGlobal << "\n"; TODO
+
+        for (int i = 0; i < filteredGoals.size(); i++) {
+            std::cout << "Goal: " << i << " patterns: " << interestingPatterns[i] << "\n";
+        }
+
+        std::cout << "\n------------------------------------------------------\n";
+        std::cout << "Smallest bin goal: " << bestPatternGlobal << " | Number of color patterns: " << mostPatternGoalsGlobal;
+        std::cout << "\n------------------------------------------------------\n\n";
+        
+        
+//        for (int i = 0; i < mostPatternGoalsGlobal+1; i++) {
+//            std::cout << "Goals: " << i << " patterns: " << interestingPatterns[i] << "\n";
+//        }
+//
+//        std::cout << "\n------------------------------------------------------\n";
+//        std::cout << "Best pattern: " << bestPatternGlobal << " | Most pattern goals: " << mostPatternGoalsGlobal;
+//        std::cout << "\n------------------------------------------------------\n\n";
+    }
+    
+    std::vector<std::vector<int>> initStatePatterns(goals.size());
+    
+    
+    std::vector<std::vector<int>> colors(numColors);
+    
+    int pp1 = comb % 4, pp2 = comb / 4;
+    
+    if(pp1 == pp2) pp2 = 3;
+    
+    
+//    const int mapPiece[numPieces] =    {2, 1, 7, 6, 3, 5, 4, a, 8, 9};
+//    const int revMapPiece[numPieces+1] = {7, 1, 0, 4, 6, 5, 3, 2, 8, 9, 8};// 8, 8/i 9/j
+    
+    colors[0].push_back(0); // all sym
+    colors[0].push_back(1);
+    
+    colors[1].push_back(3); // rot sym
+    colors[1].push_back(9);
+    
+    colors[2].push_back(2); // flip sym
+    colors[2].push_back(8);
+    colors[2].push_back(8);
+    
+    colors[3].push_back(pp1+4);
+    colors[3].push_back(pp2+4);
+    
+    for (int i = 0; i < 4; i++) {
+        if(i != pp1 && i != pp2)
+            colors[4].push_back(i+4);
+    }
+    
+    for(int i = 0; i < 6; i++)
+    {
+//        std::cout << "\n------------------------------------------------------\n";
+//        std::cout << "GROUP: " << i;
+//        std::cout << "\n------------------------------------------------------\n\n";
+        for (int j = 0; j < selectedPuzzles[i].size(); j++)
+        {
+            for (int pattern = 0; pattern < 11 ^ 10; pattern ++)
+            {
+//                std::cout<<pattern<<"\n";
+                bool unique = true;
+                uint64_t bits1 = 0;
+                for (int x = 0; x < 10; x++)
+                {
+                    int p = pattern / pow(11, x);
+                    p %= 11;
+                    p--;
+                    if(p!=-1)
+                        bits1 |= locations[selectedPuzzles[i][j].state[p].piece][selectedPuzzles[i][j].state[p].location];
+                }
+                
+                for (int k = 0; k < selectedPuzzles[i].size(); k++)
+                {
+                    if(j == k || selectedPuzzles[i][j].index == selectedPuzzles[i][k].index) continue;
+                    
+                    if(i != 0)
+                    {
+                        HexagonSearchState goal = selectedPuzzles[i][k];
+                        bool goalValid = true;//TODOX
+                        for (auto con : selectedPuzzles[i][j].constraints)
+                        {
+                            int constraintType  = con % 5;
+                            int constraint = constraintType;
+                            int con1 = (con / 10) % numPieces;
+                            int con2 = (con / 10) / numPieces;
+                            
+//                            std::cout << "Category: "<< i << " comparing: " << selectedPuzzles[i][j].index << " VS " << selectedPuzzles[i][k].index << " type: " << constraint << " clrs: " << con1<< "|"<< con2<<"\n";
+                            //                            goal.constraints.push_back((i * numPieces + j) * 10 + constraintType);
+                            bool lookingForFirstTrapezoid = true;
+                            for (int p = 0; p < colors[con1].size(); p++)
+                            {
+                                int p1 = colors[con1][p];
+                                int actualP = -1;
+                                bool firstTrapezoid = true;
+                                for (int pp = 0; pp < goal.cnt; pp++)
+                                {
+                                    if(goal.state[pp].piece == p1)
+                                    {
+                                        if(p1 == 8 && lookingForFirstTrapezoid)
+                                            lookingForFirstTrapezoid = false;
+                                        else if(p1 == 8 && !lookingForFirstTrapezoid && firstTrapezoid)
+                                        {
+                                            firstTrapezoid = false;
+                                            continue;
+                                        }
+                                        
+                                        actualP = pp;
+                                        break;
+                                    }
+                                }
+                                bool lookingForFirstQTrapezoid = true;
+                                for (int q = 0; q < colors[con2].size(); q++)
+                                {
+                                    int q1 = colors[con2][q];
+                                    int actualQ = -1;
+                                    bool firstQTrapezoid = true;
+                                    for (int qq = 0; qq < goal.cnt; qq++)
+                                    {
+                                        if(goal.state[qq].piece == q1)
+                                        {
+                                            if(q1 == 8 && lookingForFirstQTrapezoid)
+                                                lookingForFirstQTrapezoid = false;
+                                            if(q1 == 8 && !lookingForFirstQTrapezoid && firstQTrapezoid)
+                                            {
+                                                firstQTrapezoid = false;
+                                                continue;
+                                            }
+                                            
+                                            actualQ = qq;
+                                            break;
+                                        }
+                                    }
+                                    
+                                    if(actualP == actualQ || actualP == -1 || actualQ == -1)
+                                        continue;
+                                    
+//                                    std::cout << "validating " << actualP << " against " << actualQ << " type " << constraint <<"\n";
+                                    
+                                    if(   ( goal.edgeAdjacencies  [actualP + 11 * actualQ] && constraint == 1)
+                                       || (!goal.edgeAdjacencies  [actualP + 11 * actualQ] && constraint == 2)
+                                       || ((goal.edgeAdjacencies  [actualP + 11 * actualQ] || goal.cornerAdjacencies[actualP + 11 * actualQ]) && constraint == 3)
+                                       || ((goal.edgeAdjacencies [actualP + 11 * actualQ]  ||!goal.cornerAdjacencies[actualP + 11 * actualQ]) && constraint == 4))
+                                    {
+                                        goalValid = false;
+                                        break;
+                                    }
+                                    
+                                    if((goal.edgeAdjacencies[actualP + 11 * actualQ] && constraint == 2) || ((!goal.edgeAdjacencies[actualP + 11 * actualQ] && goal.cornerAdjacencies[actualP + 11 * actualQ]) && constraint == 4))
+                                        goalValid = true;
+                                }
+//                                std::cout << "Result: " << goalValid << "\n";
+                                if(!goalValid) break;
+                            }
+                            if(!goalValid)
+                                break;
+                        }
+                        
+                        if(!goalValid) continue;
+                    }
+                      
+                    HexagonSearchState tmp = selectedPuzzles[i][k];
+                    for (int y = 0; y < 6; y++)
+                    {
+                        uint64_t bits2 = 0;
+                        for (int x = 0; x < 10; x++) {
+                            int p = pattern / pow(11, x);
+                            p %= 11;
+                            p--;
+                            if(p!=-1)
+                                bits2 |= locations[tmp.state[p].piece][tmp.state[p].location];
+                        }
+
+                        if(bits1 == bits2)
+                        {
+                            unique = false;
+                            break;
+                        }
+                        RotateCW(tmp);
+                    }
+
+                    if(!unique)
+                        break;
+
+                    Flip(tmp);
+                    for (int y = 0; y < 6; y++)
+                    {
+                        uint64_t bits2 = 0;
+                        for (int x = 0; x < 10; x++) {
+                            int p = pattern / pow(11, x);
+                            p %= 11;
+                            p--;
+                            if(p!=-1)
+                                bits2 |= locations[tmp.state[p].piece][tmp.state[p].location];
+                        }
+
+                        if(bits1 == bits2)
+                        {
+                            unique = false;
+                            break;
+                        }
+                        RotateCW(tmp);
+                    }
+
+                    if(!unique)
+                        break;
+                }
+                
+                if(unique)
+                {
+                    std::vector<std::string> initPieces;
+                    for (int x = 0; x < 10; x++)
+                    {
+                        int p = pattern / pow(11, x);
+                        p %= 11;
+                        p--;
+                        if(p!=-1)
+                            initPieces.push_back(pieceNames[selectedPuzzles[i][j].state[p].piece]);
+                    }
+                    
+                    initStatePatterns[i].push_back(pattern);
+//                    std::cout<<"BEST INIT STATE FOR: " << selectedPuzzles[i][j].index << " (" << pattern << ") "  << " is with: ";
+                    
+                    selectedPuzzles[i][j].initState = pattern;
+//
+//                    for (auto t : initPieces) {
+//                        std::cout <<t<< " | ";
+//                    }
+//                    std::cout<<"\n";
+                    break;
+                }
+            }
+        }
+    }
+    
+//    std::vector<double> nums(goals.size()+1);
+//
+//
+//    for (int i = 0; i < nums.size(); i++) {
+//        nums[i] = i;
+//    }
+    
+//    bool success;
+//    StringReference *errorMessage = CreateStringReferenceLengthValue(0, L' ');
+//    RGBABitmapImageReference *imageReference = CreateRGBABitmapImageReference();
+//
+//
+//    success = DrawScatterPlot(imageReference, 1024, 1024, &nums, &interestingPatterns, errorMessage);
+//
+//    if(success){
+//        std::vector<double> *pngdata = ConvertToPNG(imageReference->image);
+//        WriteToFile(pngdata, "/Users/yazeedsabil/Desktop/svgs_clean/0example1.png");
+//        DeleteImage(imageReference->image);
+//        std::cout << "image gen success";
+//    }else{
+//        std::cerr << "Error: ";
+//        for(wchar_t c : *errorMessage->string){
+//            std::wcerr << c;
+//        }
+//        std::cerr << std::endl;
+//
+//        std::cout << errorMessage->string;
+//    }
+//
+//    FreeAllocations();
 
     
 //    std::ofstream ofs("/Users/yazeedsabil/Desktop/svgs_clean/hexagon.txt");
@@ -1914,12 +2613,19 @@ void Hexagon::Load(const char *file, HexagonState &s, bool solution)
 	char *tmp;
 	
 	// must touch diagonally
-	tmp = strcasestr(buffer, "Diag");
-	if (tmp != NULL)
-	{
-		diagPieces.resize(3);
-		sscanf(&tmp[5], "%d %d %d", &diagPieces[0], &diagPieces[1], &diagPieces[2]);
-	}
+    tmp = strcasestr(buffer, "Diag");
+    if (tmp != NULL)
+    {
+        diagPieces.resize(3);
+        sscanf(&tmp[5], "%d %d %d", &diagPieces[0], &diagPieces[1], &diagPieces[2]);
+    }
+    
+    tmp = strcasestr(buffer, "NotDiag");
+    if (tmp != NULL)
+    {
+        notDiagPieces.resize(3);
+        sscanf(&tmp[5], "%d %d %d", &notDiagPieces[0], &notDiagPieces[1], &notDiagPieces[2]);// check this 5
+    }
 	
 	tmp = strcasestr(buffer, "NoFlip");
 
@@ -1988,8 +2694,10 @@ void Hexagon::Load(const char *file, HexagonState &s, bool solution)
 			pieceColors[piece] = rgbColor::hsl((piece)/11.0, (piece%2)?1.0:0.5, 0.5);
 		}
 	}
-	for (auto i : diagPieces)
-		pieceColors[i] = rgbColor::hsl((diagPieces[0])/11.0, (diagPieces[0]%2)?1.0:0.5, 0.5);
+    for (auto i : diagPieces)
+        pieceColors[i] = rgbColor::hsl((diagPieces[0])/11.0, (diagPieces[0]%2)?1.0:0.5, 0.5);
+    for (auto i : notDiagPieces)
+        pieceColors[i] = rgbColor::hsl((notDiagPieces[0])/11.0, (notDiagPieces[0]%2)?1.0:0.5, 0.5);
 	for (auto i : noFlipPieces)
 		pieceColors[i] = rgbColor::hsl((noFlipPieces[0])/11.0, (noFlipPieces[0]%2)?1.0:0.5, 0.5);
 	for (auto i : touchPieces)
@@ -2011,8 +2719,41 @@ uint64_t HexagonEnvironment::BitsFromArray(std::vector<int> a)
     return r;
 }
 
-void HexagonEnvironment::ConvertToHexagonState(HexagonSearchState &hss, HexagonState &hs){
+void HexagonEnvironment::ConvertToHexagonState(HexagonSearchState &hss, HexagonState &hs, int initPattern){
     int trapizodeLocs = 0;
+    hs.constraints = hss.constraints;
+    
+    std::vector<int> initPieces;
+
+    if(initPattern != -1)
+    {
+        for (int x = 0; x < 10; x++)
+        {
+            int p = initPattern / pow(11, x);
+            p %= 11;
+            p--;
+            if(p!=-1)
+                initPieces.push_back(hss.state[p].piece);
+        }
+    }
+    
+    for (int u = 0; u < 66; u++) {
+        hs.state.Set(u, 11);
+    }
+    
+    hs.state.Set(0, -1);
+    hs.state.Set(1, -1);
+    hs.state.Set(9, -1);
+    hs.state.Set(10, -1);
+    hs.state.Set(11, -1);
+    hs.state.Set(21, -1);
+
+    hs.state.Set(65, -1);
+    hs.state.Set(64, -1);
+    hs.state.Set(56, -1);
+    hs.state.Set(55, -1);
+    hs.state.Set(54, -1);
+    hs.state.Set(44, -1);
     
     for(int x = 0; x < hss.cnt; x++)
     {
@@ -2031,6 +2772,9 @@ void HexagonEnvironment::ConvertToHexagonState(HexagonSearchState &hss, HexagonS
         int location = hss.state[x].location;
         uint64_t loc = locations[piece][location];//[hss.state[x].piece, hss.state[x].location];
         
+        if(initPattern != -1 && (find(initPieces.begin(), initPieces.end(), piece) == initPieces.end()))
+            continue;
+        
 //        std::cout << "RESIZING COLORS " << pieceColors.size();
 //        if (piece > pieceColors.size())
 //            pieceColors.resize(piece+1);
@@ -2038,19 +2782,6 @@ void HexagonEnvironment::ConvertToHexagonState(HexagonSearchState &hss, HexagonS
         
 //        std::cout << "RESIZING COLORS END " << pieceColors.size();
         
-        hs.state.Set(0, -1);
-        hs.state.Set(1, -1);
-        hs.state.Set(9, -1);
-        hs.state.Set(10, -1);
-        hs.state.Set(11, -1);
-        hs.state.Set(21, -1);
-        
-        hs.state.Set(65, -1);
-        hs.state.Set(64, -1);
-        hs.state.Set(56, -1);
-        hs.state.Set(55, -1);
-        hs.state.Set(54, -1);
-        hs.state.Set(44, -1);
         
 //        std::cout << hss.state[x].piece << " " << hss.state[x].location<< " " << loc << '\n';
 
@@ -3070,12 +3801,18 @@ void Hexagon::Draw(Graphics::Display &display) const
 		display.DrawText("Cannot Flip", {xLoc+1.2f*dim, yLoc+dim/2.0f}, Colors::black, dim*0.8f, Graphics::textAlignLeft, Graphics::textBaselineMiddle);
 		xLoc = 0;
 	}
-	if (diagPieces.size() != 0)
-	{
-		display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[diagPieces[0]]);
-		display.DrawText("Must Touch Diagonally", {xLoc+1.2f*dim, yLoc+dim/2.0f}, Colors::black, dim*0.8f, Graphics::textAlignLeft, Graphics::textBaselineMiddle);
-		xLoc = 0;
-	}
+    if (diagPieces.size() != 0)
+    {
+        display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[diagPieces[0]]);
+        display.DrawText("Must Touch Diagonally", {xLoc+1.2f*dim, yLoc+dim/2.0f}, Colors::black, dim*0.8f, Graphics::textAlignLeft, Graphics::textBaselineMiddle);
+        xLoc = 0;
+    }
+    if (notDiagPieces.size() != 0)
+    {
+        display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[diagPieces[0]]);
+        display.DrawText("Must Not Touch Diagonally", {xLoc+1.2f*dim, yLoc+dim/2.0f}, Colors::black, dim*0.8f, Graphics::textAlignLeft, Graphics::textBaselineMiddle);
+        xLoc = 0;
+    }
 	if (notTouchPieces.size() != 0)
 	{
 		display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[notTouchPieces[0]]);
@@ -3174,26 +3911,59 @@ void Hexagon::DrawSetup(Graphics::Display &display) const
 			display.DrawText("Cannot Flip", {xLoc+1.2f*dim, yLoc+dim/2.0f}, Colors::black, dim*0.8f, Graphics::textAlignLeft, Graphics::textBaselineMiddle);
 			xLoc = 0;
 		}
-		if (diagPieces.size() != 0)
-		{
-			display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[diagPieces[0]]);
-			display.DrawText("Must Touch Diagonally", {xLoc+1.2f*dim, yLoc+dim/2.0f}, Colors::black, dim*0.8f, Graphics::textAlignLeft, Graphics::textBaselineMiddle);
-			xLoc = 0;
-		}
+        if (diagPieces.size() != 0)
+        {
+//            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[diagPieces[0]]);
+//            display.DrawText("Must Touch Diagonally", {xLoc+1.2f*dim, yLoc+dim/2.0f}, Colors::black, dim*0.8f, Graphics::textAlignLeft, Graphics::textBaselineMiddle);
+//            xLoc = 0;
+            
+            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[diagPieces[0]]);
+            xLoc += 1.2f * dim;
+            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[diagPieces[1]]);
+            xLoc += 1.2f * dim;
+            display.DrawText("Must Touch Corners", {xLoc, yLoc+dim/2.0f}, Colors::black, dim*0.8f, Graphics::textAlignLeft, Graphics::textBaselineMiddle);
+            xLoc = 0;
+        }
+        if (notDiagPieces.size() != 0)
+        {
+//            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[notDiagPieces[0]]);
+//            display.DrawText("Must Not Touch Diagonally", {xLoc+1.2f*dim, yLoc+dim/2.0f}, Colors::black, dim*0.8f, Graphics::textAlignLeft, Graphics::textBaselineMiddle);
+//            xLoc = 0;
+            
+            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[notDiagPieces[0]]);
+            xLoc += 1.2f * dim;
+            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[notDiagPieces[1]]);
+            xLoc += 1.2f * dim;
+            display.DrawText("Must Not Touch Corners", {xLoc, yLoc+dim/2.0f}, Colors::black, dim*0.8f, Graphics::textAlignLeft, Graphics::textBaselineMiddle);
+            xLoc = 0;
+        }
 		if (notTouchPieces.size() != 0)
 		{
-			display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[notTouchPieces[0]]);
-			display.DrawText("Cannot Touch", {xLoc+1.2f*dim, yLoc+dim/2.0f}, Colors::black, dim*0.8f, Graphics::textAlignLeft, Graphics::textBaselineMiddle);
-			xLoc = 0;
+//			display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[notTouchPieces[0]]);
+//			display.DrawText("Cannot Touch", {xLoc+1.2f*dim, yLoc+dim/2.0f}, Colors::black, dim*0.8f, Graphics::textAlignLeft, Graphics::textBaselineMiddle);
+//			xLoc = 0;
+            
+            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[notTouchPieces[0]]);
+            xLoc += 1.2f * dim;
+            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[notTouchPieces[1]]);
+            xLoc += 1.2f * dim;
+            display.DrawText("Must Not Touch Edges", {xLoc, yLoc+dim/2.0f}, Colors::black, dim*0.8f, Graphics::textAlignLeft, Graphics::textBaselineMiddle);
+            xLoc = 0;
 		}
 		if (touchPieces.size() != 0)
 		{
-			display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[touchPieces[0]]);
-			display.DrawText("Must Touch Edges", {xLoc+1.2f*dim, yLoc+dim/2.0f}, Colors::black, dim*0.8f, Graphics::textAlignLeft, Graphics::textBaselineMiddle);
+            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[touchPieces[0]]);
+            xLoc += 1.2f * dim;
+            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[touchPieces[1]]);
+            xLoc += 1.2f * dim;
+			display.DrawText("Must Touch Edges", {xLoc, yLoc+dim/2.0f}, Colors::black, dim*0.8f, Graphics::textAlignLeft, Graphics::textBaselineMiddle);
 			xLoc = 0;
 		}
 	}
 }
+
+const int revMapPiece[numPieces+1] = {7, 1, 0, 4, 6, 5, 3, 2, 8, 9, 8};// 8, 8/i 9/j
+const float specialColors[5] = {0, 0.2, 0.5, 0.65, 0.8};
 
 void Hexagon::Draw(Graphics::Display &display, const HexagonState &s) const
 {
@@ -3209,8 +3979,41 @@ void Hexagon::Draw(Graphics::Display &display, const HexagonState &s) const
 			int piece = s.state.Get(y*11+x);
 			if (piece < 11)
 			{
-//                std::cout << "PIECE COLORS " << piece << "\n";
-                display.FillTriangle(p1, p2, p3, rgbColor::hsl((piece)/11.0, (piece%2)?1.0:0.5, 0.5));//pieceColors[piece]);
+                /**
+                 
+                 int noFlipMoveCount[numPieces] =
+                 {
+                 //    kHexagon = 0, 2/c
+                     4, // no flip symmetry
+                 //    kButterfly = 1, 1/b
+                     42, // no flip symmetry
+                 //    kElbow = 2, 7/h
+                     72, // no symmetry
+                 //    kLine = 3, 6/g
+                     72/2,
+                 //    kMountains = 4, 3/d
+                     156/2,
+                 //    kWrench = 5, 5/f
+                     156/2,
+                 //    kTriangle = 6, 4/e
+                     144/2,
+                 //    kHook = 7, 0/a
+                     168/2,
+                 //    kTrapezoid = 8, 8/i 9/j
+                     126,
+                 //    kSnake = 9
+                     72/2
+                 };
+                 
+                 */
+                int convPiece = revMapPiece[piece];
+                int pp1 = comb % 4, pp2 = comb / 4;
+
+                if(pp1 == pp2) pp2 = 3;
+                
+//                std::cout << "Piece: " << piece << " " << convPiece << " || " << pp1 << " " << pp2 << "\n";
+
+                display.FillTriangle(p1, p2, p3, rgbColor::hsl(specialColors[convPiece < 2 ? 0 : ((convPiece == 3 || convPiece == 9) ? 1 : ((convPiece == 2 || convPiece == 8) ? 2 : ((convPiece == (pp1+4) || convPiece == (pp2+4)) ? 3 : 4)))], 0.5, 0.5));//pieceColors[piece]);(piece%2)?1.0:
 			}
 		}
 	}
@@ -3256,5 +4059,64 @@ void Hexagon::Draw(Graphics::Display &display, const HexagonState &s) const
 			}
 		}
 	}
+    
+    float xLoc = -1, yLoc = -1;
+    float dim = 0.1;
+    
+//    colors = rgbColor::hsl(convPiece < 2 ? 0 : ((convPiece == 3 || convPiece == 9) ? 0.2 : ((convPiece == 2 || convPiece == 8) ? 0.4 : ((convPiece == (pp1+4) || convPiece == (pp2+4)) ? 0.6 : 0.8))), 0.5, 0.5)
+//    std::cout << "NUM OF CONSTRAINTS " << s.constraints.size() << "\n";
+
+    for (auto con : s.constraints) {
+        int constraintType = con % 5;
+        int p1 = (con / 10) % numPieces;
+        int p2 = (con / 10) / numPieces;
+                
+        display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, rgbColor::hsl(specialColors[p1], 0.5, 0.5));
+        xLoc += 1.2f * dim;
+        display.DrawText((constraintType == 1 ? "Must Not Touch Edges With" : (constraintType == 2 ? "Must Touch Edges With" : (constraintType == 3 ? "Must Not Touch Corners With" : "Must Touch Corners With"))), {xLoc, yLoc+dim/2.0f}, Colors::black, dim*0.8f, Graphics::textAlignLeft, Graphics::textBaselineMiddle);
+        
+        xLoc += (constraintType == 1 ? 11 : (constraintType == 2 ? 9.45 : (constraintType == 3 ? 11.5 : 10))) * dim;
+        
+        display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim},rgbColor::hsl(specialColors[p2], 0.5, 0.5));
+        xLoc = -1;
+        yLoc += 1.2f * dim;
+//
+//        if (constraintType == 1)
+//        {
+//            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, colors[p1);
+//            xLoc += 1.2f * dim;
+//            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, colors[p2]);
+//            xLoc += 1.2f * dim;
+//            display.DrawText("Must Touch Corners", {xLoc, yLoc+dim/2.0f}, Colors::black, dim*0.8f, Graphics::textAlignLeft, Graphics::textBaselineMiddle);
+//            xLoc = 0;
+//        }
+//        if (notDiagPieces.size() != 0)
+//        {
+//            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[notDiagPieces[0]]);
+//            xLoc += 1.2f * dim;
+//            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[notDiagPieces[1]]);
+//            xLoc += 1.2f * dim;
+//            display.DrawText("Must Not Touch Corners", {xLoc, yLoc+dim/2.0f}, Colors::black, dim*0.8f, Graphics::textAlignLeft, Graphics::textBaselineMiddle);
+//            xLoc = 0;
+//        }
+//        if (notTouchPieces.size() != 0)
+//        {
+//            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[notTouchPieces[0]]);
+//            xLoc += 1.2f * dim;
+//            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[notTouchPieces[1]]);
+//            xLoc += 1.2f * dim;
+//            display.DrawText("Must Not Touch Edges", {xLoc, yLoc+dim/2.0f}, Colors::black, dim*0.8f, Graphics::textAlignLeft, Graphics::textBaselineMiddle);
+//            xLoc = 0;
+//        }
+//        if (touchPieces.size() != 0)
+//        {
+//            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[touchPieces[0]]);
+//            xLoc += 1.2f * dim;
+//            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[touchPieces[1]]);
+//            xLoc += 1.2f * dim;
+//            display.DrawText("Must Touch Edges", {xLoc, yLoc+dim/2.0f}, Colors::black, dim*0.8f, Graphics::textAlignLeft, Graphics::textBaselineMiddle);
+//            xLoc = 0;
+//        }
+    }
 }
 

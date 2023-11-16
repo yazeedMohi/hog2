@@ -169,20 +169,27 @@ bool AddGoal(HexagonSearchState s)
         }
     }
     
+    s.index = goals.size();
+    he.BuildAdjacencies(s);
+    
+//    for (int r = 0; r < 10; r++) {
+//        std::cout << s.state[0].piece << " " << s.state[r].piece << " | " << s.edgeAdjacencies[r] << " " << s.cornerAdjacencies[r] << "\n";
+//    }
+    
     goals.push_back(s);
     
 //    std::cout << "Generating SVG..";
-    
-    Graphics::Display d;
-    
-    std::string fileName = "/Users/yazeedsabil/Desktop/svgs_clean/" + std::to_string(goals.size()) + ".svg";
-    
-//    std::cout << fileName;
-    
-    he.ConvertToHexagonState(s, hs);
-    h.Draw(d);
-    h.Draw(d, hs);
-    MakeSVG(d, fileName.c_str(), 1024, 1024);
+//    
+//    Graphics::Display d;
+//    
+//    std::string fileName = "/Users/yazeedsabil/Desktop/svgs_clean/" + std::to_string(goals.size()) + ".svg";
+//    
+////    std::cout << fileName;
+//    
+//    he.ConvertToHexagonState(s, hs);
+//    h.Draw(d);
+//    h.Draw(d, hs);
+//    MakeSVG(d, fileName.c_str(), 1024, 1024);
 
     return true;
 }
@@ -481,6 +488,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	return 0;
 }
 
+int cutoff = INT_MAX;//673;
 
 void AnalyzeWhichPiecesToUse()
 {
@@ -491,37 +499,154 @@ void AnalyzeWhichPiecesToUse()
 	he.SetFlippable(toFlip);
 	
 	const std::vector<tPieceName> allPieces =
-    {kElbow, kLine, kMountains, kWrench, kTriangle, kHook, kSnake, kButterfly, kTrapezoid, kTrapezoid};//TODOX put swap hex with trapezoid kHexagon
+    {kLine, kMountains, kWrench, kTriangle, kHook, kSnake, kHexagon, kElbow, kButterfly, kTrapezoid, kTrapezoid};//TODOX put swap hex with trapezoid kHexagon
     
-    
-//    printf("%s%s ", pieceNames[allPieces[x]].c_str(), (toFlip[x]==kSide1)?"1":(toFlip[x]==kSide2)?"2":"");
-//    pieces.erase(pieces.begin()+x);
-    he.SetPieces(allPieces);
-    MyDisplayHandler(0, kNoModifier, 'a');
-//
-//
-//	std::vector<tPieceName> pieces;
-//
-//	for (int x = 0; x < 1; x++)//allPieces.size() - 1
-//	{
-//		pieces = allPieces;
-//
-//		printf("%s%s ", pieceNames[allPieces[x]].c_str(), (toFlip[x]==kSide1)?"1":(toFlip[x]==kSide2)?"2":"");
-//		pieces.erase(pieces.begin()+x);
-//		he.SetPieces(pieces);
-//		MyDisplayHandler(0, kNoModifier, 'a');
-//	}
+//    const std::vector<tPieceName> allPieces = {kElbow, kLine, kMountains, kWrench, kTriangle, kHook, kSnake, kButterfly, kTrapezoid, kTrapezoid};
+//    he.SetPieces(allPieces);
+//    MyDisplayHandler(0, kNoModifier, 'a');
+
+	std::vector<tPieceName> pieces;
+
+	for (int x = 0; x < allPieces.size() - 1; x++)//allPieces.size() - 1
+	{
+		pieces = allPieces;
+
+		printf("%s%s ", pieceNames[allPieces[x]].c_str(), (toFlip[x]==kSide1)?"1":(toFlip[x]==kSide2)?"2":"");
+		pieces.erase(pieces.begin()+x);
+		he.SetPieces(pieces);
+		MyDisplayHandler(0, kNoModifier, 'a');
+        
+        if(goals.size() >= cutoff)
+            break;
+	}
 //	// now remove trapezoids
-//	pieces = allPieces;
-//	pieces.pop_back();
-//	pieces.pop_back();
-//	printf("%s ", pieceNames[allPieces[9]].c_str());
-	//			printf("Piece set: ");
-	//			for (auto i : pieces)
-	//				printf("%d ", (int)i);
-	//			printf("\n");
-//	he.SetPieces(pieces);
-//	MyDisplayHandler(0, kNoModifier, 'a');
+    if(goals.size() < cutoff)
+    {
+        pieces = allPieces;
+        pieces.pop_back();
+        pieces.pop_back();
+        //	printf("%s ", pieceNames[allPieces[9]].c_str());
+        //			printf("Piece set: ");
+        //			for (auto i : pieces)
+        //				printf("%d ", (int)i);
+        //			printf("\n");
+        he.SetPieces(pieces);
+        MyDisplayHandler(0, kNoModifier, 'a');
+    }
+    
+    std::vector<std::vector<HexagonSearchState>> selectedSolutions(6);
+    
+    he.ConstraintSpaceSearch(goals, selectedSolutions);
+    
+    for (int i = 0; i < 5; i++) {
+//        continue;//TODOX
+        std::vector<int> solCounts(goals.size());
+        for (int j = 0; j < selectedSolutions[i].size(); j++) {
+            Graphics::Display d;
+        
+            std::string fileName = "/Users/yazeedsabil/Desktop/gen_puzzles/"+ std::to_string(i) +"/" + std::to_string(selectedSolutions[i][j].index) + "-" + std::to_string(solCounts[selectedSolutions[i][j].index])+ ".svg";
+        
+            solCounts[selectedSolutions[i][j].index]++;
+                    
+            he.ConvertToHexagonState(selectedSolutions[i][j], hs);
+            h.Draw(d);
+            h.Draw(d, hs);
+            MakeSVG(d, fileName.c_str(), 1024, 1024);
+            
+        }
+    }
+    
+    
+    for (int i = 0; i < 5; i++) {
+//        continue;//TODOX
+        std::vector<int> solCounts(goals.size());
+        for (int j = 0; j < selectedSolutions[i].size(); j++) {
+            Graphics::Display d;
+        
+            std::string fileName = "/Users/yazeedsabil/Desktop/gen_puzzles_init/"+ std::to_string(i) +"/" + std::to_string(selectedSolutions[i][j].index) + "-" + std::to_string(solCounts[selectedSolutions[i][j].index])+ ".svg";
+        
+            solCounts[selectedSolutions[i][j].index]++;
+                    
+            he.ConvertToHexagonState(selectedSolutions[i][j], hs, selectedSolutions[i][j].initState);
+            h.Draw(d);
+            h.Draw(d, hs);
+            MakeSVG(d, fileName.c_str(), 1024, 1024);
+            
+        }
+    }
+    
+    std::cout<<"HERE " << selectedSolutions[5].size() << "\n";
+    std::vector<int> solCounts(goals.size());
+    
+    for (int j = 0; j < selectedSolutions[5].size(); j++)
+    {
+        HexagonSearchState g = selectedSolutions[5][j];
+        std::cout<< g.index << " " << g.allConstraints.size() << "\n";
+        for(int c1 = 0; c1 < g.allConstraints.size() - 1; c1++)
+        {
+            for(int c2 = c1+1; c2 < g.allConstraints.size(); c2++)
+            {
+                if(((g.allConstraints[c1] / 10) % numPieces) == ((g.allConstraints[c2] / 10) % numPieces) && ((g.allConstraints[c1] / 10) / numPieces) == ((g.allConstraints[c2] / 10) / numPieces))//TODOX if you wanna do cross color constraints then make sure to account for that here
+                    continue;
+                
+                HexagonSearchState newGoal;
+                newGoal.state = g.state;
+                newGoal.cnt = g.cnt;
+                newGoal.bits = g.bits;
+                newGoal.index = g.index;
+                
+                newGoal.constraints.push_back(g.allConstraints[c1]);
+                newGoal.constraints.push_back(g.allConstraints[c2]);
+                
+                Graphics::Display d;
+            
+                std::string fileName = "/Users/yazeedsabil/Desktop/gen_puzzles/5/" + std::to_string(newGoal.index) + "-" + std::to_string(solCounts[newGoal.index])+ ".svg";
+            
+                solCounts[newGoal.index]++;
+                        
+                he.ConvertToHexagonState(newGoal, hs);
+                h.Draw(d);
+                h.Draw(d, hs);
+                MakeSVG(d, fileName.c_str(), 1024, 1024);
+            }
+        }
+    }
+    
+    solCounts = std::vector<int>(goals.size());
+
+    for (int j = 0; j < selectedSolutions[5].size(); j++)
+    {
+        HexagonSearchState g = selectedSolutions[5][j];
+        std::cout<< g.index << " " << g.allConstraints.size() << "\n";
+        for(int c1 = 0; c1 < g.allConstraints.size() - 1; c1++)
+        {
+            for(int c2 = c1+1; c2 < g.allConstraints.size(); c2++)
+            {
+                if(((g.allConstraints[c1] / 10) % numPieces) == ((g.allConstraints[c2] / 10) % numPieces) && ((g.allConstraints[c1] / 10) / numPieces) == ((g.allConstraints[c2] / 10) / numPieces))//TODOX if you wanna do cross color constraints then make sure to account for that here
+                    continue;
+                
+                HexagonSearchState newGoal;
+                newGoal.state = g.state;
+                newGoal.cnt = g.cnt;
+                newGoal.bits = g.bits;
+                newGoal.index = g.index;
+                
+                newGoal.constraints.push_back(g.allConstraints[c1]);
+                newGoal.constraints.push_back(g.allConstraints[c2]);
+                
+                Graphics::Display d;
+            
+                std::string fileName = "/Users/yazeedsabil/Desktop/gen_puzzles/5/" + std::to_string(newGoal.index) + "-" + std::to_string(solCounts[newGoal.index])+ ".svg";
+            
+                solCounts[newGoal.index]++;
+                        
+                he.ConvertToHexagonState(newGoal, hs);
+                h.Draw(d);
+                h.Draw(d, hs);
+                MakeSVG(d, fileName.c_str(), 1024, 1024);
+            }
+        }
+    }
 }
 
 void AnalyzeWhichPiecesToFlip()
@@ -580,6 +705,8 @@ void AnalyzeWhichPiecesToFlip()
 //		MyDisplayHandler(0, kNoModifier, 'a');
 	}
 }
+
+int wasEqualSize = 0;
 
 void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
 {
@@ -688,7 +815,7 @@ void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
 			static int totalGoals = 0;
 			static int totalExpansions = 0;
 			totalGoals = totalExpansions = 0;
-			goals.clear();
+//			goals.clear();
 			hss.Reset();
             //1,3,5,7,8,10,12,14,16,17,19,21,23,25,27,29,31,33,35,37,40,42,44,46,49,51,53
             //0,2,4,6,7,9,11,13,15,16,18,20,22,24,26,28,30,32,34,36,39,41,43,45,48,50,52
@@ -699,14 +826,13 @@ void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
 			currDepth = 0;
 			Timer t;
 			t.StartTimer();
+            wasEqualSize = 0;
             
 //            std::cout << "Generating SVG2..";
-            
-            int cutoff = 673;//673;
-            
+                        
 			while (true)
 			{
-                if (acts[currDepth].size() > 0 && goals.size() < cutoff)//TODOX
+                if (acts[currDepth].size() > 0 && goals.size() < cutoff)
 				{
 					he.ApplyAction(hss, acts[currDepth].back());
 					currDepth++;
@@ -714,7 +840,7 @@ void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
 					he.GetActions(hss, acts.back());
 					totalExpansions++;
 				}
-				else if (currDepth > 0 && goals.size() < cutoff)//TODOX
+				else if (currDepth > 0 && goals.size() < cutoff)
                 {
 					currDepth--;
 					he.UndoAction(hss, acts[currDepth].back());
@@ -723,7 +849,6 @@ void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
 				else {
 					t.EndTimer();
 //                    CheckDuplicateGoals();
-                    he.ConstraintSpaceSearch(goals, he.GetPieces());
 
 					printf("& %lu & %d & %1.2f \\\\\n", goals.size(), totalGoals, totalExpansions/1000000.0);
 					//printf("%1.2f elapsed\n", t.GetElapsedTime());
@@ -731,7 +856,17 @@ void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
 				}
 				if (he.GoalTest(hss))
 				{
+                    int sizeBefore = goals.size();
                     AddGoal(hss);
+                    if(goals.size() == sizeBefore)
+                    {
+                        if(wasEqualSize > 10)
+                            break;
+                        else
+                            wasEqualSize++;
+                    }
+                    else
+                        wasEqualSize = 0;
                         std::cout << goals.size() << " total goals\n";// << "\t\r" << std::flush;
 
 //					goals.push_back(hss);

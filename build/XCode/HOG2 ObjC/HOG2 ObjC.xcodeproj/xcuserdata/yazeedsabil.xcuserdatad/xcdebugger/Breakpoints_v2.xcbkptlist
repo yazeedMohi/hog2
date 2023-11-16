@@ -15,8 +15,8 @@
             filePath = "../../../environments/Hexagon.cpp"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "2619"
-            endingLineNumber = "2619"
+            startingLineNumber = "3350"
+            endingLineNumber = "3350"
             landmarkName = "HexagonEnvironment::BuildHolesTable()"
             landmarkType = "7">
             <Locations>

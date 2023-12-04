@@ -7,63 +7,152 @@
       <BreakpointProxy
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
-            uuid = "10E7DE05-316C-46DE-9466-6E5378385D98"
+            uuid = "C2E565E3-E09F-4C50-8C45-17BC39C04046"
             shouldBeEnabled = "No"
-            condition = "true"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
-            filePath = "../../../environments/Hexagon.cpp"
+            filePath = "../../../apps/hexagon/Driver.cpp"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "3350"
-            endingLineNumber = "3350"
-            landmarkName = "HexagonEnvironment::BuildHolesTable()"
-            landmarkType = "7">
+            startingLineNumber = "657"
+            endingLineNumber = "657"
+            landmarkName = "AnalyzeWhichPiecesToUse()"
+            landmarkType = "9">
             <Locations>
                <Location
-                  uuid = "10E7DE05-316C-46DE-9466-6E5378385D98 - 897b361500db249c"
+                  uuid = "C2E565E3-E09F-4C50-8C45-17BC39C04046 - 666027549ecd6a4c"
                   shouldBeEnabled = "Yes"
                   ignoreCount = "0"
                   continueAfterRunningActions = "No"
-                  symbolName = "HexagonEnvironment::BuildHolesTable()"
+                  symbolName = "AnalyzeWhichPiecesToUse()"
                   moduleName = "Hexagon"
                   usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/yazeedsabil/Documents/hog2/environments/Hexagon.cpp"
+                  urlString = "file:///Users/yazeedsabil/Documents/hog2/apps/hexagon/Driver.cpp"
                   startingColumnNumber = "9223372036854775807"
                   endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "2412"
-                  endingLineNumber = "2412"
-                  offsetFromSymbolStart = "5948">
+                  startingLineNumber = "589"
+                  endingLineNumber = "589"
+                  offsetFromSymbolStart = "2000">
                </Location>
                <Location
-                  uuid = "10E7DE05-316C-46DE-9466-6E5378385D98 - 897b361500db3a4e"
+                  uuid = "C2E565E3-E09F-4C50-8C45-17BC39C04046 - 666027549ecd6a4c"
                   shouldBeEnabled = "Yes"
                   ignoreCount = "0"
                   continueAfterRunningActions = "No"
-                  symbolName = "HexagonEnvironment::BuildHolesTable()"
+                  symbolName = "AnalyzeWhichPiecesToUse()"
                   moduleName = "Hexagon"
                   usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/yazeedsabil/Documents/hog2/environments/Hexagon.cpp"
+                  urlString = "file:///Users/yazeedsabil/Documents/hog2/apps/hexagon/Driver.cpp"
                   startingColumnNumber = "9223372036854775807"
                   endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "2398"
-                  endingLineNumber = "2398"
-                  offsetFromSymbolStart = "6860">
+                  startingLineNumber = "589"
+                  endingLineNumber = "589"
+                  offsetFromSymbolStart = "2364">
                </Location>
                <Location
-                  uuid = "10E7DE05-316C-46DE-9466-6E5378385D98 - 897b361500db3a4e"
+                  uuid = "C2E565E3-E09F-4C50-8C45-17BC39C04046 - 666027549ecd6a4c"
                   shouldBeEnabled = "Yes"
                   ignoreCount = "0"
                   continueAfterRunningActions = "No"
-                  symbolName = "HexagonEnvironment::BuildHolesTable()"
+                  symbolName = "AnalyzeWhichPiecesToUse()"
                   moduleName = "Hexagon"
                   usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/yazeedsabil/Documents/hog2/environments/Hexagon.cpp"
+                  urlString = "file:///Users/yazeedsabil/Documents/hog2/apps/hexagon/Driver.cpp"
                   startingColumnNumber = "9223372036854775807"
                   endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "2398"
-                  endingLineNumber = "2398"
-                  offsetFromSymbolStart = "6876">
+                  startingLineNumber = "589"
+                  endingLineNumber = "589"
+                  offsetFromSymbolStart = "2496">
+               </Location>
+               <Location
+                  uuid = "C2E565E3-E09F-4C50-8C45-17BC39C04046 - 666027549ecd6a4c"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "AnalyzeWhichPiecesToUse()"
+                  moduleName = "Hexagon"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/yazeedsabil/Documents/hog2/apps/hexagon/Driver.cpp"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "589"
+                  endingLineNumber = "589"
+                  offsetFromSymbolStart = "2552">
+               </Location>
+               <Location
+                  uuid = "C2E565E3-E09F-4C50-8C45-17BC39C04046 - 666027549ecd6a4c"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "AnalyzeWhichPiecesToUse()"
+                  moduleName = "Hexagon"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/yazeedsabil/Documents/hog2/apps/hexagon/Driver.cpp"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "589"
+                  endingLineNumber = "589"
+                  offsetFromSymbolStart = "3488">
+               </Location>
+               <Location
+                  uuid = "C2E565E3-E09F-4C50-8C45-17BC39C04046 - 666027549ecd6aa3"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "AnalyzeWhichPiecesToUse()"
+                  moduleName = "Hexagon"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/yazeedsabil/Documents/hog2/apps/hexagon/Driver.cpp"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "590"
+                  endingLineNumber = "590"
+                  offsetFromSymbolStart = "2936">
+               </Location>
+               <Location
+                  uuid = "C2E565E3-E09F-4C50-8C45-17BC39C04046 - 666027549ecd6aa3"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "AnalyzeWhichPiecesToUse()"
+                  moduleName = "Hexagon"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/yazeedsabil/Documents/hog2/apps/hexagon/Driver.cpp"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "590"
+                  endingLineNumber = "590"
+                  offsetFromSymbolStart = "3208">
+               </Location>
+               <Location
+                  uuid = "C2E565E3-E09F-4C50-8C45-17BC39C04046 - 666027549ecd6aa3"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "AnalyzeWhichPiecesToUse()"
+                  moduleName = "Hexagon"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/yazeedsabil/Documents/hog2/apps/hexagon/Driver.cpp"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "590"
+                  endingLineNumber = "590"
+                  offsetFromSymbolStart = "2948">
+               </Location>
+               <Location
+                  uuid = "C2E565E3-E09F-4C50-8C45-17BC39C04046 - 666027549ecd6aa3"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "AnalyzeWhichPiecesToUse()"
+                  moduleName = "Hexagon"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/yazeedsabil/Documents/hog2/apps/hexagon/Driver.cpp"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "590"
+                  endingLineNumber = "590"
+                  offsetFromSymbolStart = "3220">
                </Location>
             </Locations>
          </BreakpointContent>

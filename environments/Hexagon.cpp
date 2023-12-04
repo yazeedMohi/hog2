@@ -13,8 +13,10 @@
 #include<cmath>
 #include <thread>
 #include <cstdlib>
-#include "pbPlots.hpp"
-#include "supportLib.hpp"
+//#include "pbPlots.hpp"
+//#include "supportLib.hpp"
+#include "vectorCache.h"
+#include <sstream>
 
 #include "SVGUtil.h"
 //#include <boost/serialization/map.hpp>
@@ -81,6 +83,8 @@ int noFlipMoveCount[numPieces] =
 	72/2
 };
 
+bool printLocTables = false;
+
 uint64_t locations[numPieces][192+1];
 uint64_t localized_holes[numPieces][192+1][12+1];
 
@@ -126,7 +130,7 @@ const uint64_t hole_locations_orig[numPieces][3] = // 0 1
         bits(0, 1, 2, 3, 4, 8),//bits(0, 1, 2, 3, 4, 8)
         bits(0, 1, 2, 3, 4, 8),//bits(0, 1, 2, 3, 4, 8)
 
-//        bits(0, 8, 9, 10, 11, 12),//bits(0, 8, 9, 10, 11, 12)
+//      bits(0, 8, 9, 10, 11, 12),//bits(0, 8, 9, 10, 11, 12)
     },
     { // triangle piece
         1, // kTriangle count
@@ -934,6 +938,8 @@ HexagonAction HexagonEnvironment::Flip(HexagonAction a) const
 	return a;
 }
 
+bool all = false;
+
 void HexagonEnvironment::GetSuccessors(const HexagonSearchState &nodeID, std::vector<HexagonSearchState> &neighbors) const
 {
 	static std::vector<HexagonAction> actions;
@@ -955,63 +961,106 @@ void HexagonEnvironment::GetActions(const HexagonSearchState &nodeID, std::vecto
 //	for (int x = 0; x < 19; x++)
 //		actions.push_back({1, x});
 //	const int piece = 8;
-	unsigned int piece = pieces[nodeID.cnt];
-
-//	for (unsigned int x = 1; x <= locations[piece][0]; x++)
-    // dots & loc = 0 | dots & localized_holes = 1 (localized_holes is a table)
-//    std::cout<<flippable[nodeID.cnt];
-
-	switch (flippable[nodeID.cnt])
-	{
-        case kCanFlip:
-        case kHoles:
-            for (unsigned int x = 1; x <= locations[piece][0]; x++)
-            {
-                if ((nodeID.bits&locations[piece][x]) == 0)
-                    actions.push_back({piece, x});
-            }
-            break;
-        case kSide1:
-            for (unsigned int x = 1; x <= noFlipMoveCount[piece]; x++)
-            {
-                if ((nodeID.bits&locations[piece][x]) == 0)
-                    actions.push_back({piece, x});
-            }
-            break;
-        case kSide2:
-            for (unsigned int x = noFlipMoveCount[piece]+1; x <= locations[piece][0]; x++)
-            {
-                if ((nodeID.bits&locations[piece][x]) == 0)
-                    actions.push_back({piece, x});
-            }
-            break;
-//        case kHoles:
-//            for (unsigned int x = 1; x <= locations[piece][0]; x++)
-//            {
-//                if((nodeID.bits&locations[piece][x]) != 0) continue;
-////                if(x >= localized_holes[piece][0])
-////                {actions.push_back({piece, x});continue;;/*std::cout << (nodeID.bits&locations[piece][x]) << " " << (nodeID.dots^localized_holes[piece][x]) << "\n";*/}
-//
-////                std::cout << (nodeID.dots) << "\n";
-////                if (((nodeID.bits&locations[piece][x]) == 0) && ((nodeID.dots&locations[piece][x]) == 0 || nodeID.dots&localized_holes[piece][x] == 1))
-////                if (piece < 2)
-////                {
-////
-////                }
-//
-////                std::cout << "TRACK " << piece << " " << localized_holes[piece][x][0] << "\n";
-//                for (unsigned int y = 1; y <= localized_holes[piece][x][0]; y++)
-//                {
-//                    if (((nodeID.dots&~localized_holes[piece][x][y])&locations[piece][x]) == 0)//((nodeID.dots&locations[piece][x]) == 0) || (nodeID.dots^localized_holes[piece][x]) == 0)
-//                        //                if ((nodeID.bits&locations[piece][x]) == 0)
-//                    {actions.push_back({piece, x});break;/*std::cout << (nodeID.bits&locations[piece][x]) << " " << (nodeID.dots^localized_holes[piece][x]) << "\n";*/}
-//                }
-////                if((nodeID.bits&locations[piece][x]) == 0 && (((nodeID.dots&~localized_holes[piece][x])&locations[piece][x]) == 0 || x >= localized_holes[piece][0]))
-////                    std::cout << piece << "\n" << x << " | " << localized_holes[piece][0] << "\n" << std::bitset<54>(locations[piece][x]) << "\n" << std::bitset<54>(localized_holes[piece][x]) << "\n" << std::bitset<54>((nodeID.dots&~localized_holes[piece][x])&locations[piece][x]) << "\n\n";
-//            }
-//            break;
-	}
     
+    for (int p = (all ? 0 : nodeID.cnt); p <= (all ? (pieces.size() - 1) : nodeID.cnt); p++)
+    {
+        unsigned int piece = pieces[p];
+        
+        if(all)
+        {
+            int alreadyPlayed = false;
+            for (int i = 0; i < nodeID.cnt; i++)
+            {
+                if(nodeID.state[i].piece == piece)
+                {
+                    alreadyPlayed += 1;
+                    if(alreadyPlayed == 2 || piece != kTrapezoid) break;
+                }
+            }
+            if(alreadyPlayed == 2 || (alreadyPlayed == 1 && piece != kTrapezoid)) continue;
+        }
+        
+        //	for (unsigned int x = 1; x <= locations[piece][0]; x++)
+        // dots & loc = 0 | dots & localized_holes = 1 (localized_holes is a table)
+        //    std::cout<<flippable[nodeID.cnt];
+        
+        
+        switch (flippable[nodeID.cnt])
+        {
+            case kCanFlip:
+            case kHoles:
+                if(all)
+                {
+//                    for (unsigned int x = 1; x <= locations[piece][0]; x++)
+//                    {
+//                        if((nodeID.bits&locations[piece][x]) != 0) continue;
+//                        for (unsigned int y = 1; y <= localized_holes[piece][x][0]; y++)
+//                        {
+//                            if (((nodeID.dots&~localized_holes[piece][x][y])&locations[piece][x]) == 0)
+//                            {
+//                                actions.push_back({piece, x});
+//                                break;
+//                            }
+//                        }
+//                    }
+                    
+                    
+                    for (unsigned int x = 1; x <= locations[piece][0]; x++)
+                    {
+                        if ((nodeID.bits&locations[piece][x]) == 0 && GoalValidHoles(nodeID, 432))
+                            actions.push_back({piece, x});
+                    }
+                }
+                else
+                {
+                    for (unsigned int x = 1; x <= locations[piece][0]; x++)
+                    {
+                        if ((nodeID.bits&locations[piece][x]) == 0)
+                            actions.push_back({piece, x});
+                    }
+                }
+                break;
+            case kSide1:
+                for (unsigned int x = 1; x <= noFlipMoveCount[piece]; x++)
+                {
+                    if ((nodeID.bits&locations[piece][x]) == 0)
+                        actions.push_back({piece, x});
+                }
+                break;
+            case kSide2:
+                for (unsigned int x = noFlipMoveCount[piece]+1; x <= locations[piece][0]; x++)
+                {
+                    if ((nodeID.bits&locations[piece][x]) == 0)
+                        actions.push_back({piece, x});
+                }
+                break;
+                //        case kHoles:
+                //            for (unsigned int x = 1; x <= locations[piece][0]; x++)
+                //            {
+                //                if((nodeID.bits&locations[piece][x]) != 0) continue;
+                ////                if(x >= localized_holes[piece][0])
+                ////                {actions.push_back({piece, x});continue;;/*std::cout << (nodeID.bits&locations[piece][x]) << " " << (nodeID.dots^localized_holes[piece][x]) << "\n";*/}
+                //
+                ////                std::cout << (nodeID.dots) << "\n";
+                ////                if (((nodeID.bits&locations[piece][x]) == 0) && ((nodeID.dots&locations[piece][x]) == 0 || nodeID.dots&localized_holes[piece][x] == 1))
+                ////                if (piece < 2)
+                ////                {
+                ////
+                ////                }
+                //
+                ////                std::cout << "TRACK " << piece << " " << localized_holes[piece][x][0] << "\n";
+                //                for (unsigned int y = 1; y <= localized_holes[piece][x][0]; y++)
+                //                {
+                //                    if (((nodeID.dots&~localized_holes[piece][x][y])&locations[piece][x]) == 0)//((nodeID.dots&locations[piece][x]) == 0) || (nodeID.dots^localized_holes[piece][x]) == 0)
+                //                        //                if ((nodeID.bits&locations[piece][x]) == 0)
+                //                    {actions.push_back({piece, x});break;/*std::cout << (nodeID.bits&locations[piece][x]) << " " << (nodeID.dots^localized_holes[piece][x]) << "\n";*/}
+                //                }
+                ////                if((nodeID.bits&locations[piece][x]) == 0 && (((nodeID.dots&~localized_holes[piece][x])&locations[piece][x]) == 0 || x >= localized_holes[piece][0]))
+                ////                    std::cout << piece << "\n" << x << " | " << localized_holes[piece][0] << "\n" << std::bitset<54>(locations[piece][x]) << "\n" << std::bitset<54>(localized_holes[piece][x]) << "\n" << std::bitset<54>((nodeID.dots&~localized_holes[piece][x])&locations[piece][x]) << "\n\n";
+                //            }
+                //            break;
+        }
+    }
 //	for (unsigned int x = 1; x <= (flippable[nodeID.cnt]?locations[piece][0]:noFlipMoveCount[piece]); x++)
 //	{
 //		if ((nodeID.bits&locations[piece][x]) == 0)
@@ -1032,7 +1081,7 @@ long bestGlobal = INT_MAX, validAGlobal = 0, validBGlobal = 0, validOGlobal = 0,
 // parrallelogram can be one
 //const int numPatternsForPiece[numPieces] = {1, 1, 3, 3, 15, 15, 15, 15, 3, 3};
 
-//TODOX one piece is irrelevalnt cuz its not included in any of the solutions
+//TODO: one piece is irrelevalnt cuz its not included in any of the solutions
 const int numPatternsForPiece[numPieces] = {1, 1, 3, 3, 4, 4, 4, 4, 3, 3};
 
 // 00 03 30
@@ -1136,6 +1185,30 @@ std::vector<int> GetNeighboringTrianlges(int loc)
     else if(loc > 6 && ((loc % 2 == 1 && loc <= 6) || (loc % 2 == 0 && (loc > 6 && loc <= 15)) || (loc % 2 == 1 && (loc > 15 && loc <= 37)) || (loc % 2 == 0 && (loc > 37 && loc <= 46)) || (loc % 2 == 1 && (loc > 46 && loc <= 53))))
     {
         res.push_back(loc-(loc < 16 ? 8 : (loc < 27 ? 10 : (loc < 38 ? 11 : (loc < 47 ? 10 : 8)))));
+    }
+    
+    return res;
+}
+
+uint64_t GetNeighboringTrianlgesBits(int loc)
+{
+    uint64_t res = 0;
+    if(!(loc == 6 || loc == 15 || loc == 26 || loc == 37 || loc == 46 || loc == 53))
+    {
+        res |= (((uint64_t)1)<<(loc+1));
+    }
+    if(!(loc == 0 || loc == 7 || loc == 16 ||
+           loc == 27 || loc == 38 || loc == 47))
+    {
+        res |= (((uint64_t)1)<<(loc-1));
+    }
+    if(loc < 47 && ((loc % 2 == 0 && loc <= 6) || (loc % 2 == 1 && (loc > 6 && loc <= 15)) || (loc % 2 == 0 && (loc > 15 && loc <= 37)) || (loc % 2 == 1 && (loc > 37 && loc <= 46)) || (loc % 2 == 0 && (loc > 46 && loc <= 53))))
+    {
+        res |= (((uint64_t)1)<<(loc+(loc < 7 ? 8 : (loc < 16 ? 10 : (loc < 27 ? 11 : (loc < 38 ? 10 : 8))))));
+    }
+    else if(loc > 6 && ((loc % 2 == 1 && loc <= 6) || (loc % 2 == 0 && (loc > 6 && loc <= 15)) || (loc % 2 == 1 && (loc > 15 && loc <= 37)) || (loc % 2 == 0 && (loc > 37 && loc <= 46)) || (loc % 2 == 1 && (loc > 46 && loc <= 53))))
+    {
+        res |= (((uint64_t)1)<<(loc-(loc < 16 ? 8 : (loc < 27 ? 10 : (loc < 38 ? 11 : (loc < 47 ? 10 : 8))))));
     }
     
     return res;
@@ -1361,7 +1434,7 @@ void HexagonEnvironment::ColorConstraintSpaceSearchParallelExperiment(std::vecto
     
     if(p1 == p2) p2 = 3;
     
-    std::cout<< "COMB COMP: " << p1 <<" " << p2 << "\n";
+//    std::cout<< "COMB COMP: " << p1 << " " << p2 << "\n";
     
     
 //    const int mapPiece[numPieces] =    {2, 1, 7, 6, 3, 5, 4, a, 8, 9};
@@ -1413,29 +1486,28 @@ void HexagonEnvironment::ColorConstraintSpaceSearchParallelExperiment(std::vecto
             goal = goals[g];
             patternGoals = 0;
             pieces.clear();
-            for (p = 0; p < goal.cnt; p++) {
+            for (p = 0; p < goal.cnt; p++)
+            {
                 pieces.push_back(goal.state[p].piece);
             }
             
+            for(int multi = 0; multi < 2; multi++)
             for (constraintType = 1; constraintType < 5; constraintType++)
 //            constraintType = 4;
             {
-                
-                for (int pattern = 0; pattern < /*numPatterns*/numColors; pattern++)
+                numPatterns = multi == 0 ? numColors : (numColors * (numColors-1) / 2);
+                for (int pattern = 0; pattern < numPatterns; pattern++)
                 {
-                    //TODOX add another loop for pattern 2 and pass in case they're equal
-                    //                    std::cout<<"\n\n\n\n\n\n\n\nColor: "<<pattern<<"\n";
                     goalValid = constraintType == 1 || constraintType == 3;
                     k = -1;
                     
-                    //                    for (i = 0; i < numColors; i++)
-                    i = pattern;
+                    for (i = (multi == 0 ? pattern : 0); i < (multi == 0 ? (pattern+1) : numColors); i++)
                     {
-                        //                        for (j = 0/*i+1*/; j < numColors; j++)
-                        j = pattern;
+                        for (j =  (multi == 0 ? pattern : (i+1)); j < (multi == 0 ? (pattern+1) : numColors); j++)
                         {
-                            //                            k++;
-                            //                            if(k != pattern) continue;
+                            k++;
+                            if(multi == 1 && k != pattern) continue;
+                            
                             if(i == j)
                             {
                                 int numPiecesOfClr = 0;
@@ -1472,12 +1544,15 @@ void HexagonEnvironment::ColorConstraintSpaceSearchParallelExperiment(std::vecto
                                         break;
                                     }
                                 }
+
                                 bool lookingForFirstQTrapezoid = true;
                                 for (q = 0; q < colors[j].size(); q++)
                                 {
+                                    
                                     int q1 = colors[j][q];
                                     int actualQ = -1;
                                     bool firstQTrapezoid = true;
+
                                     for (int qq = 0; qq < goal.cnt; qq++)
                                     {
                                         if(goal.state[qq].piece == q1)
@@ -1494,7 +1569,7 @@ void HexagonEnvironment::ColorConstraintSpaceSearchParallelExperiment(std::vecto
                                             break;
                                         }
                                     }
-                                    
+
                                     //                                    int p1 = colors[i][p];
                                     //                                    int p2 = colors[j][q];
                                     
@@ -1527,7 +1602,7 @@ void HexagonEnvironment::ColorConstraintSpaceSearchParallelExperiment(std::vecto
                                     //                                                    || (!goal.cornerAdjacencies[p1 + 10 * p2] && constraint == 4));
                                     
                                     //                                    std::cout << "invalid " << invalid1 << " " << anyInvalid << "\n";
-                                    
+
                                     if(   ( goal.edgeAdjacencies  [actualP + 11 * actualQ] && constraint == 1)
                                        || (!goal.edgeAdjacencies  [actualP + 11 * actualQ] && constraint == 2)
                                        || ((goal.edgeAdjacencies  [actualP + 11 * actualQ] || goal.cornerAdjacencies[actualP + 11 * actualQ]) && constraint == 3)
@@ -1546,7 +1621,7 @@ void HexagonEnvironment::ColorConstraintSpaceSearchParallelExperiment(std::vecto
                         }
                         //                        if(!goalValid) break;
                     }
-                    
+
                     if(goalValid)
                     {
                         patternGoals++;
@@ -1561,14 +1636,19 @@ void HexagonEnvironment::ColorConstraintSpaceSearchParallelExperiment(std::vecto
                             newGoal.cnt = goal.cnt;
                             newGoal.bits = goal.bits;
                             newGoal.index = goal.index;
+                            newGoal.dots = goal.dots;
+                            newGoal.forbiddenPiece = goal.forbiddenPiece;
                             
                             newGoal.edgeAdjacencies = goal.edgeAdjacencies;
                             newGoal.cornerAdjacencies = goal.cornerAdjacencies;
                             
+//                            if(multi == 1)
+//                                std::cout << "idx " << goal.index << " color: " << t << "\n";
+                            
                             newGoal.constraints.push_back(t);
                             newGoal.allConstraints = goals[g].allConstraints;
                             
-                            selectedSolutions[constraintType].push_back(newGoal);
+                            selectedSolutions[multi == 0 ? constraintType : 5].push_back(newGoal);
                         }
                         
                         //
@@ -1588,7 +1668,7 @@ void HexagonEnvironment::ColorConstraintSpaceSearchParallelExperiment(std::vecto
                     
                     goal.constraints.clear();
                     
-                    std::cout<<"FACTS " << goals[g].allConstraints.size() << "\n";
+//                    std::cout<<"FACTS " << goals[g].allConstraints.size() << "\n";
                 }
             }
         /*
@@ -1646,8 +1726,8 @@ void HexagonEnvironment::ColorConstraintSpaceSearchParallelExperiment(std::vecto
     for (i = 0; i < goals.size(); i++) {
         if(goals[i].allConstraints.size() > 1)
         {
-            selectedSolutions[5].push_back(goals[i]);
-            std::cout << "NOW WE HAVE " << selectedSolutions[5].size();
+//            selectedSolutions[5].push_back(goals[i]);
+//            std::cout << "NOW WE HAVE " << selectedSolutions[5].size();
         }
     }
     
@@ -1655,6 +1735,130 @@ void HexagonEnvironment::ColorConstraintSpaceSearchParallelExperiment(std::vecto
     
 //    std::cout<<"THREAD (" << threadNum << ") COMPLETE\n";
 }
+//
+bool HexagonEnvironment::GoalValidHoles(HexagonSearchState goal, uint64_t pattern) const
+{
+    if(goal.dots == 0)
+        return true;
+    
+    int p1, p2, y, loc, piece, location, x1, x2, x;
+    for(int p = 0; p < goal.cnt; p++)
+    {
+        piece = goal.state[p].piece;
+        
+        if(numPatternsForPiece[piece] == 1)
+        {
+            continue;
+        }
+        
+        location = goal.state[p].location;
+        
+        bool valid = false;
+        
+        uint64_t div = 1;
+        
+        for (int j = 0; j < piece; j++) {
+            div *= numPatternsForPiece[j];
+        }
+        
+        x = (pattern / div) % numPatternsForPiece[piece], x1, x2;
+        
+        if(piece == 3 || piece == 9)
+        {
+            // flip odd, even, no constraint
+            // rot: one side fits and not the other, or neither
+            x1 = x % 2 == 0 ? 0 : 3;
+            x2 = x / 2 == 0 ? 0 : 3;
+        }
+        else
+        {
+            if(numPatternsForPiece[piece] == 3)
+            {
+                x1 = x2 = x;
+            }
+            else
+            {
+                if(p1 == piece || p2 == piece)
+                {
+                    // no - o/e
+                    x1 = x < 2 ? (x+1) : 3;
+                    x2 = x > 1 ? (x-1) : 3;
+                }
+                else
+                {
+                    // o/e e/o
+                    x1 = (x / 2) + 1;
+                    x2 = (x % 2) + 1;
+                }
+                
+//                        x1 = x / 4;
+//                        x2 = x % 4;
+            }
+        }
+        
+        if(location <= noFlipMoveCount[piece])
+        {
+            if(x1 == 0)
+            {
+                continue;
+            }
+            
+            if((numPatternsForPiece[piece] == 3 && !(piece == 3 || piece == 9)) && x2 == 0)
+            {
+                continue;
+            }
+            
+            if(x1 != 3)
+            {
+                for (y = 1; y <= (x1 == 1 ? localized_holes_side1_odd : localized_holes_side1_even)[piece][location][0]; y++)
+                {
+                    if (((goal.dots&~(x1 == 1 ? localized_holes_side1_odd : localized_holes_side1_even)[piece][location][y])&locations[piece][location]) == 0)
+                    {
+                        valid = true;
+                        break;
+                    }
+                }
+                
+                if(valid)
+                {
+                    continue;
+                }
+            }
+        }
+        else
+        {
+            if(x2 == 0)
+            {
+                continue;
+            }
+            
+            if(x2 != 3)
+            {
+                loc = location - noFlipMoveCount[piece];// + 1;
+                
+                for (y = 1; y <= (x2 == 1 ? localized_holes_side2_odd : localized_holes_side2_even)[piece][loc][0]; y++)
+                {
+                    if (((goal.dots&~(x2 == 1 ? localized_holes_side2_odd : localized_holes_side2_even)[piece][loc][y])&locations[piece][location]) == 0)
+                    {
+                        valid = true;
+                        break;
+                    }
+                }
+                
+                if(valid)
+                {
+                    continue;
+                }
+            }
+        }
+        
+        
+        return true;
+    }
+    
+    return false;
+}
+
 std::vector<HexagonSearchState> filteredGoals;
 void HexagonEnvironment::ConstraintSpaceSearchParallel(std::vector<HexagonSearchState> goals, std::vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int threadNum, int totalThreads)
 {
@@ -1708,207 +1912,184 @@ void HexagonEnvironment::ConstraintSpaceSearchParallel(std::vector<HexagonSearch
                 std::cout << "Goal pieces " << goal.cnt << " " << i << "/" << size << "\n";
             }
             
-            for(p = 0; p < goal.cnt; p++)
-            {
-                piece = goal.state[p].piece;
-                
-//                if(debug)
+            goalValid = GoalValidHoles(goal, 432);
+//            for(p = 0; p < goal.cnt; p++)
+//            {
+//                piece = goal.state[p].piece;
+//
+////                if(debug)
+////                {
+////                    std::cout << "Piece " << piece << " p " << p << " num " << numPatternsForPiece[piece] << "\n";
+////                }
+////
+//                if(numPatternsForPiece[piece] == 1)
 //                {
-//                    std::cout << "Piece " << piece << " p " << p << " num " << numPatternsForPiece[piece] << "\n";
+//                    validO++;
+//                    continue;
 //                }
 //
-                if(numPatternsForPiece[piece] == 1)
-                {
-                    validO++;
-                    continue;
-                }
-                
-                location = goal.state[p].location;
-                
-                valid = false;
-                
-                uint64_t div = 1;
-                
-                for (j = 0; j < piece; j++) {
-                    div *= numPatternsForPiece[j];
-                }
-                
-                x = (pattern / div) % numPatternsForPiece[piece];
-                
-                if(piece == 3 || piece == 9)
-                {
-                    // flip odd, even, no constraint
-                    // rot: one side fits and not the other, or neither
-                    x1 = x % 2 == 0 ? 0 : 3;
-                    x2 = x / 2 == 0 ? 0 : 3;
-                }
-                else
-                {
-                    if(numPatternsForPiece[piece] == 3)
-                    {
-                        x1 = x2 = x;
-                    }
-                    else
-                    {
-                        if(p1 == piece || p2 == piece)
-                        {
-                            // no - o/e
-                            x1 = x < 2 ? (x+1) : 3;
-                            x2 = x > 1 ? (x-1) : 3;
-                        }
-                        else
-                        {
-                            // o/e e/o
-                            x1 = (x / 2) + 1;
-                            x2 = (x % 2) + 1;
-                        }
-                        
-//                        x1 = x / 4;
-//                        x2 = x % 4;
-                    }
-                }
-                
-//                goalxs[piece] = x;
-//                continue;//  remove
-                //TODO test with array of xs for each piece and print all of them for all puzzles
-                
-//                if(debug)
-//                {
-//                    std::cout << "piece = " << piece << " | p = " << p << " | num = " << numPatternsForPiece[piece] << " | loc = " << location << " | no flip = " << noFlipMoveCount[piece] << " | x = " << x << " | x1 = " << x1 << " | x2 = " << x2 << "\n";
+//                location = goal.state[p].location;
+//
+//                valid = false;
+//
+//                uint64_t div = 1;
+//
+//                for (j = 0; j < piece; j++) {
+//                    div *= numPatternsForPiece[j];
 //                }
-            
-                if(location <= noFlipMoveCount[piece])
-                {
-                    if(x1 == 0)
-                    {
-                        validX1++;
-                        continue;
-                    }
-                    
-                    if((numPatternsForPiece[piece] == 3 && !(piece == 3 || piece == 9)) && x2 == 0)
-                    {
-                        validX3++;
-                        continue;
-                    }
-                    
-                    // 100 edge constrained
-                    //
-                    
-                    if(x1 != 3)
-                    {
-                        for (y = 1; y <= (x1 == 1 ? localized_holes_side1_odd : localized_holes_side1_even)[piece][location][0]; y++)
-                        {
-//                            if(debug)
+//
+//                x = (pattern / div) % numPatternsForPiece[piece];
+//
+//                if(piece == 3 || piece == 9)
+//                {
+//                    // flip odd, even, no constraint
+//                    // rot: one side fits and not the other, or neither
+//                    x1 = x % 2 == 0 ? 0 : 3;
+//                    x2 = x / 2 == 0 ? 0 : 3;
+//                }
+//                else
+//                {
+//                    if(numPatternsForPiece[piece] == 3)
+//                    {
+//                        x1 = x2 = x;
+//                    }
+//                    else
+//                    {
+//                        if(p1 == piece || p2 == piece)
+//                        {
+//                            // no - o/e
+//                            x1 = x < 2 ? (x+1) : 3;
+//                            x2 = x > 1 ? (x-1) : 3;
+//                        }
+//                        else
+//                        {
+//                            // o/e e/o
+//                            x1 = (x / 2) + 1;
+//                            x2 = (x % 2) + 1;
+//                        }
+//
+////                        x1 = x / 4;
+////                        x2 = x % 4;
+//                    }
+//                }
+//
+////                goalxs[piece] = x;
+////                continue;//  remove
+//                //TODO test with array of xs for each piece and print all of them for all puzzles
+//
+////                if(debug)
+////                {
+////                    std::cout << "piece = " << piece << " | p = " << p << " | num = " << numPatternsForPiece[piece] << " | loc = " << location << " | no flip = " << noFlipMoveCount[piece] << " | x = " << x << " | x1 = " << x1 << " | x2 = " << x2 << "\n";
+////                }
+//
+//                if(location <= noFlipMoveCount[piece])
+//                {
+//                    if(x1 == 0)
+//                    {
+//                        validX1++;
+//                        continue;
+//                    }
+//
+//                    if((numPatternsForPiece[piece] == 3 && !(piece == 3 || piece == 9)) && x2 == 0)
+//                    {
+//                        validX3++;
+//                        continue;
+//                    }
+//
+//                    // 100 edge constrained
+//                    //
+//
+//                    if(x1 != 3)
+//                    {
+//                        for (y = 1; y <= (x1 == 1 ? localized_holes_side1_odd : localized_holes_side1_even)[piece][location][0]; y++)
+//                        {
+////                            if(debug)
+////                            {
+//////                                std::cout<<"been here, done that";
+////
+////                                std::cout <<
+////                                "dots " << std::bitset<54>(goal.dots) <<
+////                                "\nhole " << std::bitset<54>(localized_holes_side1_even[piece][location][y]) <<
+////                                "\nholo " << std::bitset<54>(localized_holes_side1_odd[piece][location][y]) <<
+//////                                "\nho?? " << std::bitset<54>(localized_holes_side1_odd[piece][location+1][y]) <<
+////                                "\nlocs " << std::bitset<54>(locations[piece][location]) << "\n\n";
+////
+////                            }
+//
+//                            if (((goal.dots&~(x1 == 1 ? localized_holes_side1_odd : localized_holes_side1_even)[piece][location][y])&locations[piece][location]) == 0)
 //                            {
-////                                std::cout<<"been here, done that";
-//
-//                                std::cout <<
-//                                "dots " << std::bitset<54>(goal.dots) <<
-//                                "\nhole " << std::bitset<54>(localized_holes_side1_even[piece][location][y]) <<
-//                                "\nholo " << std::bitset<54>(localized_holes_side1_odd[piece][location][y]) <<
-////                                "\nho?? " << std::bitset<54>(localized_holes_side1_odd[piece][location+1][y]) <<
-//                                "\nlocs " << std::bitset<54>(locations[piece][location]) << "\n\n";
-//
+//                                valid = true;
+//                                break;
 //                            }
-                            
-                            if (((goal.dots&~(x1 == 1 ? localized_holes_side1_odd : localized_holes_side1_even)[piece][location][y])&locations[piece][location]) == 0)
-                            {
-                                valid = true;
-                                break;
-                            }
-                        }
-                        
-                        if(valid)
-                        {
-                            validA++;
-                            continue;
-                        }
-                    }
-                }
-                else
-                {
-                    if(x2 == 0)
-                    {
-                        validX2++;
-                        continue;
-                    }
-                    
-                    
-                    if(x2 != 3)
-                    {
-                        loc = location - noFlipMoveCount[piece];// + 1;
-                        
-                        for (y = 1; y <= (x2 == 1 ? localized_holes_side2_odd : localized_holes_side2_even)[piece][loc][0]; y++)
-                        {
-//                            if(debug)
+//                        }
+//
+//                        if(valid)
+//                        {
+//                            validA++;
+//                            continue;
+//                        }
+//                    }
+//                }
+//                else
+//                {
+//                    if(x2 == 0)
+//                    {
+//                        validX2++;
+//                        continue;
+//                    }
+//
+//
+//                    if(x2 != 3)
+//                    {
+//                        loc = location - noFlipMoveCount[piece];// + 1;
+//
+//                        for (y = 1; y <= (x2 == 1 ? localized_holes_side2_odd : localized_holes_side2_even)[piece][loc][0]; y++)
+//                        {
+////                            if(debug)
+////                            {
+//////                                std::cout<<"been here, done that";
+////
+////                                std::cout <<
+////                                "dots " << std::bitset<54>(goal.dots) <<
+////                                "\nhols " << std::bitset<54>(localized_holes_side2_odd[piece][loc][y]) <<
+////                                "\nhol? " << std::bitset<54>(localized_holes_side2_odd[piece][loc-1][y]) <<
+////                                "\nho?? " << std::bitset<54>(localized_holes_side2_odd[piece][loc+1][y]) <<
+////                                "\nlocs " << std::bitset<54>(locations[piece][loc]) <<
+////                                "\nlocs " << std::bitset<54>(locations[piece][location]) << "\n\n";
+////
+////                            }
+//
+//                            if (((goal.dots&~(x2 == 1 ? localized_holes_side2_odd : localized_holes_side2_even)[piece][loc][y])&locations[piece][location]) == 0)
 //                            {
-////                                std::cout<<"been here, done that";
-//
-//                                std::cout <<
-//                                "dots " << std::bitset<54>(goal.dots) <<
-//                                "\nhols " << std::bitset<54>(localized_holes_side2_odd[piece][loc][y]) <<
-//                                "\nhol? " << std::bitset<54>(localized_holes_side2_odd[piece][loc-1][y]) <<
-//                                "\nho?? " << std::bitset<54>(localized_holes_side2_odd[piece][loc+1][y]) <<
-//                                "\nlocs " << std::bitset<54>(locations[piece][loc]) <<
-//                                "\nlocs " << std::bitset<54>(locations[piece][location]) << "\n\n";
-//
+//                                valid = true;
+//                                break;
 //                            }
-                            
-                            if (((goal.dots&~(x2 == 1 ? localized_holes_side2_odd : localized_holes_side2_even)[piece][loc][y])&locations[piece][location]) == 0)
-                            {
-                                valid = true;
-                                break;
-                            }
-                        }
-                        
-                        if(valid)
-                        {
-                            validB++;
-                            continue;
-                        }
-                    }
-                }
-                
-//                std::cout<<"invalid piece " << piece << "\n";
-                goalValid = false;
-                break;
-            }
-                        
-            if(goalValid) { patternGoals++; filteredGoals.push_back(goals[i]);
-                
-                
-//                Graphics::Display d;
+//                        }
 //
-//                std::string fileName = "/Users/yazeedsabil/Desktop/gen_puzzles/0/" + std::to_string(filteredGoals.size()-1) + ".svg";
+//                        if(valid)
+//                        {
+//                            validB++;
+//                            continue;
+//                        }
+//                    }
+//                }
 //
-//            //    std::cout << fileName;
-//                Hexagon h;
-//                HexagonState hs;
-//                ConvertToHexagonState(goals[i], hs);
-//                h.Draw(d);
-//                h.Draw(d, hs);
-//                MakeSVG(d, fileName.c_str(), 1024, 1024);
-                
+////                std::cout<<"invalid piece " << piece << "\n";
+//                goalValid = false;
+//                break;
+//            }
+                        
+            if(goalValid) {
+                patternGoals++;
+                filteredGoals.push_back(goals[i]);
             }
-            
-//            break;// remove
         }
-        
-//        if(patternGoals == 0)
-//        {
-//            if(threadNum == 0){
-//                for (int i = 0; i < 10; i++) {
-//                    std::cout << goalxs[i] << " ";
-//                }
-//
-//                std::cout<<"\n";
-//
-//
-//            }}
-//        std::cout<<patternGoals<<"\n";
         localInterestingPatterns[patternGoals]++;
-        if(patternGoals > mostPatternGoals) { mostPatternGoals = patternGoals; bestPattern = pattern; }
-//        std::cout<<"2";
+        if(patternGoals > mostPatternGoals)
+        {
+            mostPatternGoals = patternGoals;
+            bestPattern = pattern;
+        }
     }
     
     patternLock.lock();
@@ -1960,8 +2141,10 @@ void HexagonEnvironment::ConstraintSpaceSearchParallel(std::vector<HexagonSearch
 //    kTrapezoid = 8
 //    kSnake = 9
 
-void HexagonEnvironment::ConstraintSpaceSearch(std::vector<HexagonSearchState> goals, std::vector<std::vector<HexagonSearchState>> &selectedPuzzles)
+void HexagonEnvironment::ConstraintSpaceSearch(std::vector<HexagonSearchState> goals, std::vector<std::vector<HexagonSearchState>> &selectedSolutions)
 {
+    all = true;
+
     int THREADS = 1;
     int THRESHOLD = std::ceil(goals.size()/2.0);
     
@@ -1984,43 +2167,56 @@ void HexagonEnvironment::ConstraintSpaceSearch(std::vector<HexagonSearchState> g
     {
         mostPatternGoalsGlobal = 0;
         std::cout << "\n------------------------------------------------------\n";
-        std::cout << "Combination: " << comb;
-        std::cout << "\n------------------------------------------------------\n\n";
+        std::cout << "Running hole space search...";
+        std::cout << "\n------------------------------------------------------\n";
         std::vector<std::thread> v;
         std::vector<std::thread> v2;
         
         std::vector<double> interestingPatterns(goals.size()+1);
         
-        for (int i = 0; i < THREADS; i++) {
+        for (int i = 0; i < THREADS; i++)
+        {
             v.emplace_back(&HexagonEnvironment::ConstraintSpaceSearchParallel, this, goals, std::ref(interestingPatterns), THRESHOLD, numPatterns, i, THREADS);
         }
         
-        for (auto& t : v) {
+        for (auto& t : v)
+        {
             t.join();
         }
-    
+        
+        std::cout << "\n------------------------------------------------------\n";
+        std::cout << "Finished hole space search";
+        std::cout << "\n------------------------------------------------------\n";
         
 //        filteredGoals = goals;//TODOX
         
-        selectedPuzzles[0] = filteredGoals;
+        selectedSolutions[0] = filteredGoals;
+        
+        std::cout << "\n------------------------------------------------------\n";
+        std::cout << "Running color space search...";
+        std::cout << "\n------------------------------------------------------\n";
         
         for (int i = 0; i < THREADS; i++) {
-            v2.emplace_back(&HexagonEnvironment::ColorConstraintSpaceSearchParallelExperiment, this, std::ref(filteredGoals), std::ref(interestingPatterns), THRESHOLD, numPatterns, numColors, i, THREADS, std::ref(selectedPuzzles));
+            v2.emplace_back(&HexagonEnvironment::ColorConstraintSpaceSearchParallelExperiment, this, std::ref(filteredGoals), std::ref(interestingPatterns), THRESHOLD, numPatterns, numColors, i, THREADS, std::ref(selectedSolutions));
         }
 
         for (auto& t : v2) {
             t.join();
         }
 
+        std::cout << "\n------------------------------------------------------\n";
+        std::cout << "Finished color space search...";
+        std::cout << "\n------------------------------------------------------\n";
+        
         //    std::cout << "A: " << validAGlobal << " B: " << validBGlobal << " X1: " << validX1Global << " X2: " << validX2Global << " X3: " << validX3Global << " O: " << validOGlobal << "\n"; TODO
 
-        for (int i = 0; i < filteredGoals.size(); i++) {
-            std::cout << "Goal: " << i << " patterns: " << interestingPatterns[i] << "\n";
-        }
-
-        std::cout << "\n------------------------------------------------------\n";
-        std::cout << "Smallest bin goal: " << bestPatternGlobal << " | Number of color patterns: " << mostPatternGoalsGlobal;
-        std::cout << "\n------------------------------------------------------\n\n";
+//        for (int i = 0; i < filteredGoals.size(); i++) {
+//            std::cout << "Goal: " << i << " patterns: " << interestingPatterns[i] << "\n";
+//        }
+//
+//        std::cout << "\n------------------------------------------------------\n";
+//        std::cout << "Smallest bin goal: " << bestPatternGlobal << " | Number of color patterns: " << mostPatternGoalsGlobal;
+//        std::cout << "\n------------------------------------------------------\n\n";
         
         
 //        for (int i = 0; i < mostPatternGoalsGlobal+1; i++) {
@@ -2031,6 +2227,11 @@ void HexagonEnvironment::ConstraintSpaceSearch(std::vector<HexagonSearchState> g
 //        std::cout << "Best pattern: " << bestPatternGlobal << " | Most pattern goals: " << mostPatternGoalsGlobal;
 //        std::cout << "\n------------------------------------------------------\n\n";
     }
+    
+    
+    std::cout << "\n------------------------------------------------------\n";
+    std::cout << "Analyzing inital states...";
+    std::cout << "\n------------------------------------------------------\n";
     
     std::vector<std::vector<int>> initStatePatterns(goals.size());
     
@@ -2065,11 +2266,10 @@ void HexagonEnvironment::ConstraintSpaceSearch(std::vector<HexagonSearchState> g
     
     for(int i = 0; i < 6; i++)
     {
-//        std::cout << "\n------------------------------------------------------\n";
-//        std::cout << "GROUP: " << i;
-//        std::cout << "\n------------------------------------------------------\n\n";
-        for (int j = 0; j < selectedPuzzles[i].size(); j++)
+        std::cout << "Analyzing group: " << i << " ("<< selectedSolutions[i].size() << " items)\n";
+        for (int j = 0; j < selectedSolutions[i].size(); j++)
         {
+//            std::cout<<"analyzing init for: " << j << "\n";
             for (int pattern = 0; pattern < 11 ^ 10; pattern ++)
             {
 //                std::cout<<pattern<<"\n";
@@ -2081,25 +2281,25 @@ void HexagonEnvironment::ConstraintSpaceSearch(std::vector<HexagonSearchState> g
                     p %= 11;
                     p--;
                     if(p!=-1)
-                        bits1 |= locations[selectedPuzzles[i][j].state[p].piece][selectedPuzzles[i][j].state[p].location];
+                        bits1 |= locations[selectedSolutions[i][j].state[p].piece][selectedSolutions[i][j].state[p].location];
                 }
                 
-                for (int k = 0; k < selectedPuzzles[i].size(); k++)
+                for (int k = 0; k < selectedSolutions[i].size(); k++)
                 {
-                    if(j == k || selectedPuzzles[i][j].index == selectedPuzzles[i][k].index) continue;
+                    if(j == k || selectedSolutions[i][j].index == selectedSolutions[i][k].index || selectedSolutions[i][j].forbiddenPiece != selectedSolutions[i][j].forbiddenPiece) continue;
                     
                     if(i != 0)
                     {
-                        HexagonSearchState goal = selectedPuzzles[i][k];
+                        HexagonSearchState goal = selectedSolutions[i][k];
                         bool goalValid = true;//TODOX
-                        for (auto con : selectedPuzzles[i][j].constraints)
+                        for (auto con : selectedSolutions[i][j].constraints)
                         {
                             int constraintType  = con % 5;
                             int constraint = constraintType;
                             int con1 = (con / 10) % numPieces;
                             int con2 = (con / 10) / numPieces;
                             
-//                            std::cout << "Category: "<< i << " comparing: " << selectedPuzzles[i][j].index << " VS " << selectedPuzzles[i][k].index << " type: " << constraint << " clrs: " << con1<< "|"<< con2<<"\n";
+//                            std::cout << "Category: "<< i << " comparing: " << selectedSolutions[i][j].index << " VS " << selectedSolutions[i][k].index << " type: " << constraint << " clrs: " << con1<< "|"<< con2<<"\n";
                             //                            goal.constraints.push_back((i * numPieces + j) * 10 + constraintType);
                             bool lookingForFirstTrapezoid = true;
                             for (int p = 0; p < colors[con1].size(); p++)
@@ -2173,7 +2373,7 @@ void HexagonEnvironment::ConstraintSpaceSearch(std::vector<HexagonSearchState> g
                         if(!goalValid) continue;
                     }
                       
-                    HexagonSearchState tmp = selectedPuzzles[i][k];
+                    HexagonSearchState tmp = selectedSolutions[i][k];
                     for (int y = 0; y < 6; y++)
                     {
                         uint64_t bits2 = 0;
@@ -2229,13 +2429,13 @@ void HexagonEnvironment::ConstraintSpaceSearch(std::vector<HexagonSearchState> g
                         p %= 11;
                         p--;
                         if(p!=-1)
-                            initPieces.push_back(pieceNames[selectedPuzzles[i][j].state[p].piece]);
+                            initPieces.push_back(pieceNames[selectedSolutions[i][j].state[p].piece]);
                     }
                     
                     initStatePatterns[i].push_back(pattern);
-//                    std::cout<<"BEST INIT STATE FOR: " << selectedPuzzles[i][j].index << " (" << pattern << ") "  << " is with: ";
+//                    std::cout<<"BEST INIT STATE FOR: " << selectedSolutions[i][j].index << " (" << pattern << ") "  << " is with: ";
                     
-                    selectedPuzzles[i][j].initState = pattern;
+                    selectedSolutions[i][j].initState = pattern;
 //
 //                    for (auto t : initPieces) {
 //                        std::cout <<t<< " | ";
@@ -2247,6 +2447,9 @@ void HexagonEnvironment::ConstraintSpaceSearch(std::vector<HexagonSearchState> g
         }
     }
     
+    std::cout << "\n------------------------------------------------------\n";
+    std::cout << "Finished analyzing inital states";
+    std::cout << "\n------------------------------------------------------\n";
 //    std::vector<double> nums(goals.size()+1);
 //
 //
@@ -2348,19 +2551,641 @@ uint64_t HexagonEnvironment::GetActionHash(HexagonAction act) const
 	return 0;
 }
 
+
+std::string PrintBits(uint64_t bits)
+{
+//    bits = 671154232;
+    std::string res = "";
+    
+    for (int i = 0; i < 54; i++) {
+        if(i == 0 || i == 47) res += "  ";
+        if(i == 7 || i == 38) res += " ";
+        
+        
+        
+        if(((i % 2 == 0 && i <= 6) || (i % 2 == 1 && (i > 6 && i <= 15)) || (i % 2 == 0 && (i > 15 && i <= 37)) || (i % 2 == 1 && (i > 37 && i <= 46)) || (i % 2 == 0 && (i > 46 && i <= 53))))
+        {
+            res += ((bits>>i)&1) == 0 ? "△" : "▲";
+//            res |= (((uint64_t)1)<<(loc+(loc < 7 ? 8 : (loc < 16 ? 10 : (loc < 27 ? 11 : (loc < 38 ? 10 : 8))))));
+        }
+        else
+        {
+            res += ((bits>>i)&1) == 0 ? "▽" : "▼";
+//            res |= (((uint64_t)1)<<(loc-(loc < 16 ? 8 : (loc < 27 ? 10 : (loc < 38 ? 11 : (loc < 47 ? 10 : 8))))));
+        }
+        
+        
+        
+        if(i == 6) res += "  ";
+        if(i == 26 || i == 46) res += " ";
+        
+        if(i == 6 || i == 15 || i == 26 || i == 37 || i == 46)
+            res += "\n";
+    }
+    
+    return res;
+}
+
+// entropyRecur()
+// from the given state
+// step 1: base case if its solved => return 0
+// call get successors
+// filteredSuccessors = successors with removing moves you can't perform (based on inference rules)
+// if filteredSuccssors.length == 0 return inf
+// requiredSuccessors = filter by: if piece can only go to one place OR if the location can only fit one piece
+// for succ : filteredSuccors:
+//      childEntropy = min(entropyRecur(succ), childEntropy)
+// return log2(filteredSucs.length)+childEntropy;
+
+
+
+bool HexagonEnvironment::SizeOfEmtpyRegionRule(const HexagonSearchState &s) const
+{
+//    return true; // 9.321
+    // When placing a piece, the unfilled regions need to have a number of open triangles which are either mod 6 or mod 3, depending on the trapezoid. This limits the number of possible placements.
+    
+    // steps:
+    // write code that detects size of connected regions of empty triangles, add those trianlges in a list such that you don't explore them again
+    // now you have the list of empty regions, should be vector<vector<int>> emptyRegions
+    // get count for each and make sure they're either: mod 6 (in case we don't have trapezoids left), or that they're -3 mod 6 (in case we do)
+    
+    
+    int remainingTrapezoids = 0;
+    
+    if(find(pieces.begin(), pieces.end(), kTrapezoid) != pieces.end())
+    {
+        remainingTrapezoids = 2;
+        
+        for (int i = 0; i < s.cnt; i++) {
+            if(s.state[i].piece == kTrapezoid)
+            {
+                remainingTrapezoids--;
+            }
+        }
+    }
+    
+    for (auto space : s.emptySpaces) {
+        int spaceSize = 0;
+        for (int i = 0; i < 54; i++)
+        {
+            if(((space>>i)&1) == 1)
+                spaceSize++;
+        }
+        
+        if(spaceSize%6 != 0 && !(remainingTrapezoids > 0 && (spaceSize-3)%6 == 0))
+            return false;
+    }
+    
+    return true;
+}
+
+bool HexagonEnvironment::PiecesAreComposedOfTrapezoidsRule(const HexagonSearchState &s) const
+{
+//    return true;// 21.2
+    // There are certain patterns that can never be filled, even if they meet the parity constraint, given that all the pieces are composed of trapezoids, which reduces the number of places a piece might be placed.
+    
+    // steps:
+    // get empty regions list
+    // for all 6 sized spaces: check that there's a 2-trapezoid configuration that would fit the space
+    
+    
+    for (auto space : s.emptySpaces) {
+        int spaceSize = 0;
+        for (int i = 0; i < 54; i++)
+        {
+            if(((space>>i)&1) == 1)
+                spaceSize++;
+        }
+        
+        if(spaceSize != 6)
+            continue;
+        
+        bool configFound = false;
+        for (int trap1 = 1; trap1 <= locations[kTrapezoid][0]; trap1++) {
+            for (int trap2 = 1; trap2 <= locations[kTrapezoid][0]; trap2++) {
+                uint64_t config = 0;
+                config |= locations[kTrapezoid][trap1];
+                config |= locations[kTrapezoid][trap2];
+                
+                if(space == config)
+                {
+                    configFound = true;
+                    break;
+                }
+            }
+            if(configFound) break;
+        }
+        
+        if(!configFound)
+        {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+//21.2
+bool HexagonEnvironment::PieceThatFitsTheSpaceIsNotAvailableRule(const HexagonSearchState &s) const
+{
+//    return true;//19.5
+    // there can be spaces that can fit pieces, but that piece isn’t available due to being played already, or not matching other (color/bump) constraints.
+    
+    // if both trapezoids are available return true
+    
+    
+    int remainingTrapezoids = 0;
+    
+    if(find(pieces.begin(), pieces.end(), kTrapezoid) != pieces.end())
+    {
+        remainingTrapezoids = 2;
+        
+        for (int i = 0; i < s.cnt; i++) {
+            if(s.state[i].piece == kTrapezoid)
+            {
+                remainingTrapezoids--;
+            }
+        }
+    }
+    
+    if(remainingTrapezoids == 2) return true;
+    
+    // get empty regions list
+    
+    // if any of them is size 3 and no trapezoids are available return false
+    
+    // for each one of size 6, make sure that there's a remaining piece that has a location that can fit there, if so return true
+    
+    
+    for (auto space : s.emptySpaces) {
+        int spaceSize = 0;
+        for (int i = 0; i < 54; i++)
+        {
+            if(((space>>i)&1) == 1)
+                spaceSize++;
+        }
+        
+        if(spaceSize == 3 && remainingTrapezoids == 0)
+            return false;
+        
+        if(spaceSize != 6) continue;
+        
+        bool locCovered = false;
+        
+        for(auto piece : pieces)
+        {
+            bool piecePlayed = false;
+            for (int p = 0; p < s.cnt; p++) {
+                if(s.state[p].piece == piece)
+                {
+                    piecePlayed = true;
+                    break;
+                }
+            }
+            
+            if(piecePlayed) continue;
+            
+            for (int loc = 1; loc <= locations[piece][0]; loc++) {
+                if(locations[piece][loc] == space)
+                {
+                    locCovered = true;
+                    break;
+                }
+            }
+            
+            if(locCovered) break;
+        }
+        
+        if(!locCovered)
+            return false;
+    }
+        
+    return true;
+}
+
+uint64_t HexagonEnvironment::LocationCanOnlyFitACertainPieceReqRule(const HexagonSearchState &s) const
+{
+//    return 0;
+    // if location can only fit one piece then it has to go there
+    
+    // loop through empty regions
+    //      if its size 3 and a trapezoid exists return true
+    //      int fits = 0;
+    //      if its size 6 loop through remaining pieces and then loop through all their possible locations (given constraints?)
+    //          fits++
+    //      return fits == 1;
+    
+    
+    
+    int remainingTrapezoids = 0;
+    
+    if(find(pieces.begin(), pieces.end(), kTrapezoid) != pieces.end())
+    {
+        remainingTrapezoids = 2;
+        
+        for (int i = 0; i < s.cnt; i++) {
+            if(s.state[i].piece == kTrapezoid)
+            {
+                remainingTrapezoids--;
+            }
+        }
+    }
+    
+    if(remainingTrapezoids == 2) return 0;
+    
+    for (auto &space : s.emptySpaces)
+    {
+//        int spaceSize = 0;
+//        for (int i = 0; i < 54; i++)
+//        {
+//            if(((space>>i)&1) == 1)
+//                spaceSize++;
+//        }
+        
+//        if(spaceSize == 3 && remainingTrapezoids > 0)
+//            return true;
+        
+//        if(spaceSize != 6 && spaceSize != 3) return false;
+        
+//        if(spaceSize != 6) continue;
+        
+        int fits = 0, thePiece;
+        
+        for(auto piece : pieces)
+        {
+            if(remainingTrapezoids > 0 && piece != kTrapezoid) continue;
+            
+            int piecePlayed = 0;
+            for (int p = 0; p < s.cnt; p++) {
+                if(s.state[p].piece == piece)
+                {
+                    piecePlayed++;
+                    break;
+                }
+            }
+            
+            if(piecePlayed) continue;
+            
+            for (int loc = 1; loc <= locations[piece][0]; loc++) {
+                if(locations[piece][loc] == space)
+                {
+                    thePiece = piece;
+                    fits++;
+                    break;
+                }
+            }
+        }
+        
+        if(fits == 1)
+        {
+//            std::cout<<"\n\n\nThis is the only piece: " << pieceNames[thePiece] << " that can fit the space\n" << PrintBits(space)<<"\n\n";
+            return space;
+        }
+    }
+    
+    return 0;
+}
+
+int HexagonEnvironment::PieceCanOnlyGoInOnePlaceReqRule(const HexagonSearchState &s) const
+{
+//    return -1;
+    // if piece can only go to one place then its requied to go there
+    
+    // loop through remaining pieces
+    //      int fits = 0;
+    //      loop through empty regions
+    //          if its size 6 loop through all piece possible locations (given constraints?)
+    //              fits++
+    //      return fits == 1;
+    
+    
+    
+    for(auto piece : pieces)
+    {
+        if(piece == kTrapezoid) continue;
+        
+        bool piecePlayed = false;
+        
+        for (int p = 0; p < s.cnt; p++)
+        {
+            if(s.state[p].piece == piece)
+            {
+                piecePlayed = true;
+                break;
+            }
+        }
+        
+        if(piecePlayed) continue;
+        
+        int fits = 0;
+        uint64_t theSpace;
+//
+//        for (auto space : s.emptySpaces)
+//        {
+//            int spaceSize = 0;
+//            for (int i = 0; i < 54; i++)
+//            {
+//                if(((space>>i)&1) == 1)
+//                    spaceSize++;
+//            }
+////
+//            if(spaceSize != 6) return false;
+//
+////            if(spaceSize != 6) continue;
+//
+//            for (int loc = 1; loc <= locations[piece][0]; loc++) {
+//                if(locations[piece][loc] == space)
+//                {
+//                    theSpace = space;
+//                    fits++;
+//                    break;
+//                }
+//            }
+//        }
+        
+        
+        for (int loc = 1; loc <= locations[piece][0]; loc++)
+        {
+            if((locations[piece][loc]&s.bits) == 0)
+            {
+                theSpace = locations[piece][loc];
+                fits++;
+            }
+        }
+        
+        if(fits == 1)
+        {
+//            std::cout<<"\n\n\nThis piece: " << pieceNames[piece] << " can only fit in this space\n" << PrintBits(theSpace)<<"\n\n";
+            return piece;
+        }
+    }
+   
+    return -1;
+}
+
+void HexagonEnvironment::GetEmptySpaces(HexagonSearchState &s) const
+{
+    s.emptySpaces.clear();
+    uint64_t exploredTriangles = 0, emptySpace = 0, emptyTrianglesAtLevel = 0, emptyTrianglesAtNextLevel = 0, neighbors = 0;
+    
+    for (int i = 0; i < 54; i++)
+    {
+        if(((s.bits>>i)&1) == 1 || ((exploredTriangles>>i)&1) == 1)
+            continue;
+        
+        emptySpace = 0;
+        
+        emptySpace ^= (((uint64_t)1)<<i);
+        
+        exploredTriangles |= (((uint64_t)1)<<i);
+        
+        emptyTrianglesAtLevel = GetNeighboringTrianlgesBits(i);
+
+        while(emptyTrianglesAtLevel != 0)
+        {
+            emptyTrianglesAtNextLevel = 0;
+            for (int t = 0; t < 54; t++)
+            {
+                if(((emptyTrianglesAtLevel>>t)&1) == 0 || t == i || ((s.bits>>t)&1) == 1 || ((exploredTriangles>>t)&1) == 1)
+                    continue;
+
+                emptySpace |= (((uint64_t)1)<<t);
+
+                exploredTriangles |= (((uint64_t)1)<<t);
+
+                neighbors = GetNeighboringTrianlgesBits(t);
+
+                for (int child = 0; child < 54; child++)
+                {
+                    if(((neighbors>>child)&1) == 0 || child == t || ((s.bits>>child)&1) == 1 || ((exploredTriangles>>child)&1) == 1)
+                        continue;
+
+                    emptyTrianglesAtNextLevel |= (((uint64_t)1)<<child);
+                }
+            }
+            emptyTrianglesAtLevel = emptyTrianglesAtNextLevel;
+        }
+        
+        // SANITY CHECK
+        // check that shape is convex
+//
+//        int spaceSize = 0;
+//        for (int i = 0; i < 54; i++)
+//        {
+//            if(((emptySpace>>i)&1) == 1)
+//                emptySpace++;
+//        }
+        
+//        if(spaceSize > 1)
+//        for (int xstep = 0; xstep < 54; xstep++) {
+//            if(((emptySpace>>xstep)&1) == 0)
+//                continue;
+//
+//            uint64_t neigh = GetNeighboringTrianlgesBits(xstep);
+//            bool found = false;
+//            for (int xstep2 = 0; xstep2 < 54; xstep2++) {
+//                if(((emptySpace>>xstep2)&1) == 0 || xstep == xstep2)
+//                    continue;
+//
+//                if(((neigh>>xstep2)&1) == 1)
+//                {
+//                    found = true;
+//                    break;
+//                }
+//            }
+//
+//            if(!found)
+//            {
+//                std::cout<<"FREAKOUT";
+//            }
+//
+//        }
+        if(emptySpace == 671154232)
+        {
+            std::cout<<"CATCCHHHHH";
+        }
+        s.emptySpaces.push_back(emptySpace);
+    }
+    
+}
+
+// 1 .
+// 3 ...
+// 9 ... ... ...
+// 27 ... ... ... ... ... ... ... ... ...
+// 54
+
+int leafNum, deadEnds;
+vectorCache<HexagonSearchState> succsCache;
+//vectorCache<bool> boolCache;
+vectorCache<int> intCache;
+long expansions;
+
+float HexagonEnvironment::GetEntropy(HexagonSearchState &s) const
+{
+    if(GoalTest(s)) // Base case
+    {
+//        leafNum++;
+//        std::cout<< s.cnt << " reached leaf #" << leafNum << "\n";
+        return 0;
+    }
+        
+    std::vector<HexagonSearchState> &succs = *succsCache.getItem();
+    
+    std::vector<HexagonSearchState> &filteredSuccs = *succsCache.getItem();
+    
+    std::vector<HexagonSearchState> &tempSucc = *succsCache.getItem();
+    
+    std::vector<int> &numItems = *intCache.getItem();
+    numItems.resize(pieces.size());
+    
+    GetSuccessors(s, succs);
+    
+    uint64_t exists = 0;
+    
+    bool parentHasOneTrapezoid = false;
+    
+    for (int i = 0; i < s.cnt; i++)
+    {
+        if(s.state[i].piece == kTrapezoid)
+            parentHasOneTrapezoid = !parentHasOneTrapezoid;
+    }
+
+    for (auto &succ : succs)//consider trapezoids separately
+    {
+        bool firstTrapezoidFound = false;
+        for (int i = 0; i < succ.cnt; i++)
+        {
+            if(succ.state[i].piece != kTrapezoid || (succ.state[i].piece == kTrapezoid && (!parentHasOneTrapezoid || firstTrapezoidFound)))
+                exists |= (((uint64_t)1)<<succ.state[i].piece);
+            if(succ.state[i].piece == kTrapezoid)
+                firstTrapezoidFound = true;
+//            std::cout << succ.state[i].piece << " ";
+        }
+        
+//        std::cout << "\n";
+        
+        GetEmptySpaces(succ);
+////        std::cout<< "\n\n\n" << std::bitset<54>(succ.bits)<<"\n\n";
+//        std::cout << "\n\n\n" << PrintBits(succ.bits) << "\n\n";
+//        for (auto em : succ.emptySpaces)
+//        {
+////            std::cout<< std::bitset<54>(em)<<"\n";
+//            std::cout<< PrintBits(em) << "\n\n";
+//        }
+    }
+
+    for (int i = 0; i < pieces.size(); i++)
+    {
+        if(((exists>>pieces[i])&1) == 0)
+        {
+//            std::cout<<"Piece missing: " << pieces[i] <<"\n";
+            return INFINITY;
+        }
+    }
+
+    uint64_t req1 = LocationCanOnlyFitACertainPieceReqRule(s);
+    int req2 = PieceCanOnlyGoInOnePlaceReqRule(s);
+
+    if (!(req1 == 0 && req2 == -1))
+    {
+        for (auto &succ : succs)
+        {
+            if((req1 != 0 && (succ.bits & req1) == 6) || (req2 != -1 && succ.state[succ.cnt - 1].piece == req2))
+            {
+                return GetEntropy(succ);
+            }
+        }
+    }
+    
+    for (const auto &succ : succs)
+    {
+        if(!SizeOfEmtpyRegionRule(succ))
+            continue;
+
+        if(!PiecesAreComposedOfTrapezoidsRule(succ))
+            continue;
+
+        if(!PieceThatFitsTheSpaceIsNotAvailableRule(succ))
+            continue;
+
+        numItems[succ.state[succ.cnt - 1].piece]++;
+        
+//        std::cout << succ.state[succ.cnt - 1].piece << " " << numItems[succ.state[succ.cnt - 1].piece] << "\n";
+        
+        tempSucc.push_back(succ);
+    }
+    
+    int minP = 99999, bestP = -1;
+    
+    for (int i = 0; i < numItems.size(); i++)
+    {
+        if(numItems[i] < minP && numItems[i] > 0)
+        {
+            minP = numItems[i];
+            bestP = i;
+            
+//            std::cout << "found best: " << bestP << " " << minP << "\n";
+        }
+    }
+    
+    for (const auto &succ : tempSucc)
+    {
+        if(succ.state[succ.cnt - 1].piece != bestP)
+            continue;
+        
+        filteredSuccs.push_back(succ);
+    }
+    
+//    std::cout << "filtered " << tempSucc.size() << " into " << filteredSuccs.size() << " " << bestP << " " << minP << "\n";
+    
+    succsCache.returnItem(&tempSucc);
+
+    if(filteredSuccs.size() == 0)
+    {
+//        std::cout << "dead end\n";
+        return INFINITY;
+    }
+    
+    float childEntropy = INFINITY;
+    
+    int cur = 0;
+    
+    for (auto &succ : filteredSuccs)
+    {
+        //ctrl cmd y
+        cur++;
+        expansions++;
+//        if(s.cnt == 2)
+//            std::cout<<"expansions " << expansions << " | " << childEntropy << " ("<<cur<<"/"<<filteredSuccs.size()<<")\n";
+        
+        childEntropy = min(GetEntropy(succ), childEntropy);
+    }
+    
+    childEntropy += log2(filteredSuccs.size());
+    
+    succsCache.returnItem(&succs);
+    succsCache.returnItem(&filteredSuccs);
+    
+//    if(childEntropy != INFINITY)
+//    std::cout<<"entropy returned: " << childEntropy << "\n";
+    
+    return childEntropy;
+}
+
 /** Prints out the triangles used for this piece in HOG2 coordinates */
 void HexagonEnvironment::GeneratePieceCoordinates(tPieceName p)
 {
 	// 1. Start with environment with only one piece type
-	HexagonEnvironment e;
+//	HexagonEnvironment e;
 	std::vector<tPieceName> v;
 	v.push_back(p);
-	e.SetPieces(v);
+	/*e.*/SetPieces(v);
 	
 	// 2. Get legal actions
 	std::vector<HexagonSearchState> succ;
 	HexagonSearchState s;
-	e.GetSuccessors(s, succ);
+    /*e.*/GetSuccessors(s, succ);
 
 	// 3. Place the piece on the board
 	s = succ[0];
@@ -2381,19 +3206,86 @@ void HexagonEnvironment::GeneratePieceCoordinates(tPieceName p)
 	}
 	std::cout << count << "\n";
 	// drawing doesn't have to be so fast! (compared to enumeration operations)
+    //
 	for (int t = 0; t < 54; t++)
 	{
 		if (((state>>t)&1) == 1)
 		{
-			int x, y;
+			int xx, y;
 			Graphics::point p1, p2, p3;
-			IndexToXY(t, x, y);
-			GetCorners(x, y, p1, p2, p3);
+			IndexToXY(t, xx, y);
+			GetCorners(xx, y, p1, p2, p3);
 			
 			std::cout.precision(20);
 			std::cout << std::fixed;
 
 			std::cout << " " << p1 << " " << p2 << " " << p3 << "\t";
+            
+            int piece = s.state[0].piece;
+            int loc = s.state[0].location;
+            
+            uint64_t pattern = 432;
+            uint64_t div = 1;
+            
+            for (int j = 0; j < piece; j++) {
+                div *= numPatternsForPiece[j];
+            }
+            
+            int x = (pattern / div) % numPatternsForPiece[piece];
+            int x1, x2;
+            
+            if(numPatternsForPiece[piece] == 1)
+            {
+                x1 = x2 = 0;
+            }
+            else if(piece == 3 || piece == 9)
+            {
+                // flip odd, even, no constraint
+                // rot: one side fits and not the other, or neither
+                x1 = x % 2 == 0 ? 0 : 3;
+                x2 = x / 2 == 0 ? 0 : 3;
+            }
+            else
+            {
+                if(numPatternsForPiece[piece] == 3)
+                {
+                    x1 = x2 = x;
+                }
+                else
+                {
+                    if(pp1 == piece || pp2 == piece)
+                    {
+                        // no - o/e
+                        x1 = x < 2 ? (x+1) : 3;
+                        x2 = x > 1 ? (x-1) : 3;
+                    }
+                    else
+                    {
+                        // o/e e/o
+                        x1 = (x / 2) + 1;
+                        x2 = (x % 2) + 1;
+                    }
+                }
+            }
+            
+            bool side1 = x1 == 0 || (x1 == 1 && ((localized_holes_side1_odd[piece][0][0]>>t)&1) == 1) || (x1 == 2 && ((localized_holes_side1_even[piece][0][0]>>t)&1) == 1);
+            bool side2 = x2 == 0 || (x2 == 1 && ((localized_holes_side1_odd[piece][0][0]>>t)&1) == 1) || (x2 == 2 && ((localized_holes_side1_even[piece][0][0]>>t)&1) == 1);
+            
+            int type = (side1 ? 1 : 0) + (side2 ? 2 : 0);
+            
+            // 0: none
+            // 1: side 1 only
+            // 2: side 2 only
+            // 3: both
+            
+            std::cout << x1 << "." << x2 << "\t";
+            
+            // 0: full
+            // 1: odd-odd or even-even //flip
+            // 2: full-none or none-full //rot
+            // 3: none-odd or none-even //g1
+            // 4: odd-even or even-odd //g2
+            
 		}
 	}
 	std::cout << "\n";
@@ -2403,7 +3295,7 @@ void HexagonEnvironment::GeneratePieceCoordinates(tPieceName p)
 void HexagonEnvironment::GenerateBoardBorder()
 {
 	// 1. Start with environment with only one piece type
-	HexagonEnvironment e;
+//	HexagonEnvironment e;
 	
 	std::cout << "Board\t";
 //	// count how many objects we have
@@ -2719,9 +3611,39 @@ uint64_t HexagonEnvironment::BitsFromArray(std::vector<int> a)
     return r;
 }
 
+HexagonSearchState HexagonEnvironment::GetInitState(HexagonSearchState &hss)
+{
+    std::vector<int> initPieces;
+    
+    HexagonSearchState init;
+    init.index = hss.index;
+    init.constraints = hss.constraints;
+    init.dots = hss.dots;
+    
+    for (int x = 0; x < 10; x++)
+    {
+        int p = hss.initState / pow(11, x);
+        p %= 11;
+        p--;
+        if(p!=-1)
+            initPieces.push_back(p);
+    }
+    
+    init.cnt = initPieces.size();
+    
+    for (int i = 0; i < initPieces.size(); i++) {
+        init.state[i].piece = hss.state[initPieces[i]].piece;
+        init.state[i].location = hss.state[initPieces[i]].location;
+        init.bits ^= locations[hss.state[initPieces[i]].piece][hss.state[initPieces[i]].location];
+    }
+    
+    return init;
+}
+
 void HexagonEnvironment::ConvertToHexagonState(HexagonSearchState &hss, HexagonState &hs, int initPattern){
     int trapizodeLocs = 0;
     hs.constraints = hss.constraints;
+    hs.dots = hss.dots;
     
     std::vector<int> initPieces;
 
@@ -2996,7 +3918,7 @@ void HexagonEnvironment::BuildLocationTable()
             
             int size = b.size();//sizeof(b)/sizeof(*b);
             
-            if(true)
+            if(printLocTables)
             {
                 std::cout << "["<<(loc+1)<<"] (";
                 for(int p = 0; p < size; p++)
@@ -3024,8 +3946,8 @@ void HexagonEnvironment::BuildLocationTable()
         //            {printf("%d", b[p]);if(p<(size-1))std::cout << ", ";}
         //            std::cout << ")\n";
         //        }
-        
-        std::cout << "\n\n";
+        if(printLocTables)
+            std::cout << "\n\n";
     }
 }
 
@@ -3273,10 +4195,10 @@ void HexagonEnvironment::BuildLocationTable()
                                         
                                         if(piece == 3 && w == 1 && hole_locs[w].size() == 2)
                                         {
-                                            std::cout << "G 0: " << std::bitset<54>(location) << "\n";
-                                            std::cout << "G 1: " << std::bitset<54>(hole_locs[w][0]) << "\n";
-                                            std::cout << "G 2: " << std::bitset<54>(hole_locs[w][1]) << "\n";
-                                            std::cout << "G 3: " << rots << " " << even << " " << flip << "\n";
+//                                            std::cout << "G 0: " << std::bitset<54>(location) << "\n";
+//                                            std::cout << "G 1: " << std::bitset<54>(hole_locs[w][0]) << "\n";
+//                                            std::cout << "G 2: " << std::bitset<54>(hole_locs[w][1]) << "\n";
+//                                            std::cout << "G 3: " << rots << " " << even << " " << flip << "\n";
                                         }
                                     }
                                 }
@@ -3336,16 +4258,16 @@ void HexagonEnvironment::BuildLocationTable()
             
             if(piece == 2)
             {
-                std::cout << "\n\n" << localized_holes_side1_odd[piece][1][0] << "\n" << std::bitset<54>(locations[piece][78]) << "\n" << std::bitset<54>(localized_holes_side1_odd[piece][78][1])<< "\n" << std::bitset<54>(localized_holes_side1_even[piece][78][1]) << "\n";
+//                std::cout << "\n\n" << localized_holes_side1_odd[piece][1][0] << "\n" << std::bitset<54>(locations[piece][78]) << "\n" << std::bitset<54>(localized_holes_side1_odd[piece][78][1])<< "\n" << std::bitset<54>(localized_holes_side1_even[piece][78][1]) << "\n";
 
                 for(int loc = 0; loc < noFlipMoveCount[piece]; loc++)
                 {
-                    std::cout << "piece " << piece << " loc " << (loc+1) <<  " no flip moves " << noFlipMoveCount[piece] << " total moves " << locations[piece][0] << " 1o " << localized_holes_side1_odd[piece][loc+1][0]<< " 1e " << localized_holes_side1_even[piece][loc+1][0] << "\n";
+//                    std::cout << "piece " << piece << " loc " << (loc+1) <<  " no flip moves " << noFlipMoveCount[piece] << " total moves " << locations[piece][0] << " 1o " << localized_holes_side1_odd[piece][loc+1][0]<< " 1e " << localized_holes_side1_even[piece][loc+1][0] << "\n";
                 }
 
                 for(int loc = 0; loc < noFlipMoveCount[piece]; loc++)
                 {
-                    std::cout << "piece " << piece << " loc " << (loc+1) <<  " no flip moves " << noFlipMoveCount[piece] << " total moves " << locations[piece][0] << " 2o " << localized_holes_side2_odd[piece][loc+1][0]<< " 2e " << localized_holes_side2_even[piece][loc+1][0] << "\n";
+//                    std::cout << "piece " << piece << " loc " << (loc+1) <<  " no flip moves " << noFlipMoveCount[piece] << " total moves " << locations[piece][0] << " 2o " << localized_holes_side2_odd[piece][loc+1][0]<< " 2e " << localized_holes_side2_even[piece][loc+1][0] << "\n";
                 }
 
             }
@@ -4060,11 +4982,14 @@ void Hexagon::Draw(Graphics::Display &display, const HexagonState &s) const
 		}
 	}
     
-    float xLoc = -1, yLoc = -1;
     float dim = 0.1;
+    float xLoc = -1 + dim/2.0f, yLoc = -1 + dim/2.0f;
     
 //    colors = rgbColor::hsl(convPiece < 2 ? 0 : ((convPiece == 3 || convPiece == 9) ? 0.2 : ((convPiece == 2 || convPiece == 8) ? 0.4 : ((convPiece == (pp1+4) || convPiece == (pp2+4)) ? 0.6 : 0.8))), 0.5, 0.5)
 //    std::cout << "NUM OF CONSTRAINTS " << s.constraints.size() << "\n";
+    
+    
+    
 
     for (auto con : s.constraints) {
         int constraintType = con % 5;
@@ -4078,45 +5003,128 @@ void Hexagon::Draw(Graphics::Display &display, const HexagonState &s) const
         xLoc += (constraintType == 1 ? 11 : (constraintType == 2 ? 9.45 : (constraintType == 3 ? 11.5 : 10))) * dim;
         
         display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim},rgbColor::hsl(specialColors[p2], 0.5, 0.5));
-        xLoc = -1;
+        xLoc = -0.9f;
         yLoc += 1.2f * dim;
-//
-//        if (constraintType == 1)
-//        {
-//            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, colors[p1);
-//            xLoc += 1.2f * dim;
-//            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, colors[p2]);
-//            xLoc += 1.2f * dim;
-//            display.DrawText("Must Touch Corners", {xLoc, yLoc+dim/2.0f}, Colors::black, dim*0.8f, Graphics::textAlignLeft, Graphics::textBaselineMiddle);
-//            xLoc = 0;
-//        }
-//        if (notDiagPieces.size() != 0)
-//        {
-//            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[notDiagPieces[0]]);
-//            xLoc += 1.2f * dim;
-//            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[notDiagPieces[1]]);
-//            xLoc += 1.2f * dim;
-//            display.DrawText("Must Not Touch Corners", {xLoc, yLoc+dim/2.0f}, Colors::black, dim*0.8f, Graphics::textAlignLeft, Graphics::textBaselineMiddle);
-//            xLoc = 0;
-//        }
-//        if (notTouchPieces.size() != 0)
-//        {
-//            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[notTouchPieces[0]]);
-//            xLoc += 1.2f * dim;
-//            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[notTouchPieces[1]]);
-//            xLoc += 1.2f * dim;
-//            display.DrawText("Must Not Touch Edges", {xLoc, yLoc+dim/2.0f}, Colors::black, dim*0.8f, Graphics::textAlignLeft, Graphics::textBaselineMiddle);
-//            xLoc = 0;
-//        }
-//        if (touchPieces.size() != 0)
-//        {
-//            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[touchPieces[0]]);
-//            xLoc += 1.2f * dim;
-//            display.FillRect({xLoc, yLoc, xLoc+dim, yLoc+dim}, pieceColors[touchPieces[1]]);
-//            xLoc += 1.2f * dim;
-//            display.DrawText("Must Touch Edges", {xLoc, yLoc+dim/2.0f}, Colors::black, dim*0.8f, Graphics::textAlignLeft, Graphics::textBaselineMiddle);
-//            xLoc = 0;
-//        }
     }
+    
+    xLoc = -1;
+    yLoc = -1;
+
+    display.DrawText(s.dots == (((1ull)<<54)-1) ? "Free" : "Dots", {1-dim/2.0f, dim+ yLoc}, Colors::black, dim*0.8f, Graphics::textAlignRight, Graphics::textBaselineMiddle);
+    
+    xLoc = -1;
+    yLoc = -1;
+
+    if(s.entropy != 0)
+    {
+        std::stringstream ss;
+        ss << s.entropy;
+        std::string str = ss.str();
+        const char* buf = str.c_str();
+        
+        display.DrawText(buf, {1-dim/2.0f, 1 - dim}, rgbColor::hsl(0.33f - (s.entropy/24.0f)/3.0f, 0.5, 0.5), dim*0.8f, Graphics::textAlignRight, Graphics::textBaselineMiddle);
+    }
+    
+    if(s.forbiddenPiece == -1) return;
+    
+    display.DrawText("Forbidden:", {-0.75f, 0.75}, Colors::black, dim*0.8f, Graphics::textAlignCenter, Graphics::textBaselineMiddle);
+    
+    float forbiddenScale = 0.25f, forbiddenX = -0.75f, forbiddenY = 1;
+    
+    int index = -1;
+    
+    for (int y = 0; y < 6; y++)
+    {
+        for (int x = 0; x < 11; x++)
+        {
+            if (!Valid(x, y))
+                continue;
+            
+            index++;
+            
+            if(((locations[s.forbiddenPiece][1]>>index)&1) == 0) continue;
+            
+            Graphics::point p1, p2, p3;
+            GetCorners(x, y, p1, p2, p3);
+            
+            p1 = { forbiddenX + p1.x * forbiddenScale , forbiddenY + p1.y * forbiddenScale};
+            p2 = { forbiddenX + p2.x * forbiddenScale , forbiddenY + p2.y * forbiddenScale};
+            p3 = { forbiddenX + p3.x * forbiddenScale , forbiddenY + p3.y * forbiddenScale};
+            
+//            int piece = s.state.Get(y*11+x);
+            int piece = mapPiece[s.forbiddenPiece];
+            if (piece < 11)
+            {
+                int convPiece = revMapPiece[piece];
+                int pp1 = comb % 4, pp2 = comb / 4;
+
+                if(pp1 == pp2) pp2 = 3;
+                
+                display.FillTriangle(p1, p2, p3, rgbColor::hsl(specialColors[convPiece < 2 ? 0 : ((convPiece == 3 || convPiece == 9) ? 1 : ((convPiece == 2 || convPiece == 8) ? 2 : ((convPiece == (pp1+4) || convPiece == (pp2+4)) ? 3 : 4)))], 0.5, 0.5));
+            }
+        }
+    }
+            
+//    index = -1;
+//
+//    for (int y = 0; y < 6; y++)
+//    {
+//        for (int x = 0; x < 11; x++)
+//        {
+//            if (!Valid(x, y))
+//                continue;
+//
+//            index++;
+//
+//            if(((locations[s.forbiddenPiece][1]>>index)&1) == 0) continue;
+//
+//            Graphics::point p1, p2, p3;
+//            GetCorners(x, y, p1, p2, p3);
+//
+//            p1 = { -0.75f + p1.x * 0.25f , 0.75f + p1.y * 0.25f};
+//            p2 = { -0.75f + p2.x * 0.25f , 0.75f + p2.y * 0.25f};
+//            p3 = { -0.75f + p3.x * 0.25f , 0.75f + p3.y * 0.25f};
+//
+////            int piece = s.state.Get(y*11+x);
+//            int piece = mapPiece[s.forbiddenPiece];
+//
+//            if ((x == 10) || (piece != s.state.Get(y*11+x+1)))
+//            {
+//                if (GetBorder(x, y, 1, 0, p1, p2))
+//                {
+//                    p1 = { -0.75f + p1.x * 0.25f , 0.75f + p1.y * 0.25f};
+//                    p2 = { -0.75f + p2.x * 0.25f , 0.75f + p2.y * 0.25f};
+//                    display.DrawLine(p1, p2, 0.02, Colors::black);
+//                }
+//            }
+//            if ((x == 0) || (x > 0 && piece != s.state.Get(y*11+x-1)))
+//            {
+//                if (GetBorder(x, y, -1, 0, p1, p2))
+//                {
+//                    p1 = { -0.75f + p1.x * 0.25f , 0.75f + p1.y * 0.25f};
+//                    p2 = { -0.75f + p2.x * 0.25f , 0.75f + p2.y * 0.25f};
+//                    display.DrawLine(p1, p2, 0.02, Colors::black);
+//                }
+//            }
+//            if ((y == 5) || (y < 5 && piece != s.state.Get((y+1)*11+x)))
+//            {
+//                if (GetBorder(x, y, 0, 1, p1, p2))
+//                {
+//                    p1 = { -0.75f + p1.x * 0.25f , 0.75f + p1.y * 0.25f};
+//                    p2 = { -0.75f + p2.x * 0.25f , 0.75f + p2.y * 0.25f};
+//                    display.DrawLine(p1, p2, 0.02, Colors::black);
+//                }
+//            }
+//            if ((y == 0) || (y > 0 && piece != s.state.Get((y-1)*11+x)))
+//            {
+//                if (GetBorder(x, y, 0, -1, p1, p2))
+//                {
+//                    p1 = { -0.75f + p1.x * 0.25f , 0.75f + p1.y * 0.25f};
+//                    p2 = { -0.75f + p2.x * 0.25f , 0.75f + p2.y * 0.25f};
+//                    display.DrawLine(p1, p2, 0.02, Colors::black);
+//                }
+//            }
+//        }
+//    }
 }
 

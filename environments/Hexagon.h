@@ -72,6 +72,9 @@ public:
 	:state(60) {}
 	NBitArray<4> state;
     std::vector<int> constraints;
+    float entropy;
+    uint64_t dots;
+    int forbiddenPiece;
 };
 
 static bool operator==(const HexagonState &l1, const HexagonState &l2)
@@ -165,7 +168,9 @@ public:
     uint64_t bits, dots;
     std::array<bool, 121> edgeAdjacencies, cornerAdjacencies;
     std::vector<int> constraints, allConstraints;
-	int cnt, index, initState;
+    std::vector<uint64_t> emptySpaces;
+	int cnt, index, initState, forbiddenPiece;
+    float entropy;
 	std::array<HexagonAction, 12> state;
 //	NBitArray<4> state;
 };
@@ -289,6 +294,19 @@ public:
 	HexagonAction Flip(HexagonAction a) const;
     
     void ConvertToHexagonState(HexagonSearchState &hss, HexagonState &hs, int initPattern = -1);
+    HexagonSearchState GetInitState(HexagonSearchState &hss);
+    float GetEntropy(HexagonSearchState &s) const;
+    
+    void GetEmptySpaces(HexagonSearchState &s) const;
+    
+    bool GoalValidHoles(HexagonSearchState goal, uint64_t pattern) const;
+    
+    bool SizeOfEmtpyRegionRule(const HexagonSearchState &s) const;
+    bool PiecesAreComposedOfTrapezoidsRule(const HexagonSearchState &s) const;
+    bool PieceThatFitsTheSpaceIsNotAvailableRule(const HexagonSearchState &s) const;
+    uint64_t LocationCanOnlyFitACertainPieceReqRule(const HexagonSearchState &s) const;
+    int PieceCanOnlyGoInOnePlaceReqRule(const HexagonSearchState &s) const;
+    
     uint64_t BitsFromArray(std::vector<int> a);
     void BuildLocationTable();//;int[] &bits, std::vector<int[]> &table)
     void BuildHolesTable();//;int[] &bits, std::vector<int[]> &table)

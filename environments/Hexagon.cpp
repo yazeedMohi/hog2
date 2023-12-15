@@ -127,8 +127,8 @@ const uint64_t hole_locations_orig[numPieces][3] = // 0 1
     },
     { // long piece a bit like the elbow but asymmetric
         1, // kWrench count
-        bits(0, 1, 2, 3, 4, 8),//bits(0, 1, 2, 3, 4, 8)
-        bits(0, 1, 2, 3, 4, 8),//bits(0, 1, 2, 3, 4, 8)
+        bits(0, 2, 4),//bits(0, 1, 2, 3, 4, 8)
+        bits(1, 3, 8),//bits(0, 1, 2, 3, 4, 8)
 
 //      bits(0, 8, 9, 10, 11, 12),//bits(0, 8, 9, 10, 11, 12)
     },
@@ -1086,6 +1086,16 @@ const int numPatternsForPiece[numPieces] = {1, 1, 3, 3, 4, 4, 4, 4, 3, 3};
 
 // 00 03 30
 
+// 432
+
+// 0 0 0 0 0 3 0 0 0
+
+
+//for (int j = 0; j < piece; j++) {
+//    div *= numPatternsForPiece[j];
+//}
+//
+//int x = (pattern / div) % numPatternsForPiece[piece];
 
 //int noFlipMoveCount[numPieces] =
 //{
@@ -3204,7 +3214,84 @@ void HexagonEnvironment::GeneratePieceCoordinates(tPieceName p)
 			count++;
 		}
 	}
-	std::cout << count << "\n";
+    
+    int pp1 = comb % 4, pp2 = comb / 4;
+    if(pp1 == pp2) pp2 = 3;
+    
+    pp1+=4; pp2+=4;
+    
+    //int noFlipMoveCount[numPieces] =
+    //{
+    ////    kHexagon = 0, 2/c
+    ////    kButterfly = 1, 1/b
+    ////    kElbow = 2, 7/h
+    ////    kLine = 3, 6/g
+    ////    kMountains = 4, 3/d
+    ////    kWrench = 5, 5/f
+    ////    kTriangle = 6, 4/e
+    ////    kHook = 7, 0/a
+    ////    kTrapezoid = 8, 8/i 9/j
+    ////    kSnake = 9
+    //};
+
+    
+    int piece = s.state[0].piece;
+    int loc = s.state[0].location;
+    
+    std::cout << count << "\n";//piece
+
+    uint64_t pattern = 432;
+    uint64_t div = 1;
+
+    for (int j = 0; j < piece; j++) {
+        div *= numPatternsForPiece[j];
+    }
+
+    int x = (pattern / div) % numPatternsForPiece[piece];
+    int x1, x2;
+
+    if(numPatternsForPiece[piece] == 1)
+    {
+        x1 = x2 = 0;
+    }
+    else if(piece == 3 || piece == 9)
+    {
+        // flip odd, even, no constraint
+        // rot: one side fits and not the other, or neither
+        x1 = x % 2 == 0 ? 0 : 3;
+        x2 = x / 2 == 0 ? 0 : 3;
+    }
+    else
+    {
+        if(numPatternsForPiece[piece] == 3)
+        {
+            x1 = x2 = x;
+        }
+        else
+        {
+            if(pp1 == piece || pp2 == piece)
+            {
+                // no - o/e
+                x1 = x < 2 ? (x+1) : 3;
+                x2 = x > 1 ? (x-1) : 3;
+            }
+            else
+            {
+                // o/e e/o
+                x1 = (x / 2) + 1;
+                x2 = (x % 2) + 1;
+            }
+        }
+    }
+    
+//    std::cout << "x: " << x << " x1: " << x1 << " x2: " << x2  << " pp1: " << pp1 << " pp2: " << pp2 << "\n";
+//
+//    std::cout << "G O: " << std::bitset<54>(state) << "\n";
+//    std::cout << "G 0: " << std::bitset<54>(localized_holes_side1_odd[piece][1][1]) << "\n";
+//    std::cout << "G 1: " << std::bitset<54>(localized_holes_side1_even[piece][1][1]) << "\n";
+//    std::cout << "G 2: " << std::bitset<54>(localized_holes_side2_odd[piece][1][1]) << "\n";
+//    std::cout << "G 3: " << std::bitset<54>(localized_holes_side2_even[piece][1][1]) << "\n";
+    
 	// drawing doesn't have to be so fast! (compared to enumeration operations)
     //
 	for (int t = 0; t < 54; t++)
@@ -3220,57 +3307,11 @@ void HexagonEnvironment::GeneratePieceCoordinates(tPieceName p)
 			std::cout << std::fixed;
 
 			std::cout << " " << p1 << " " << p2 << " " << p3 << "\t";
+
             
-            int piece = s.state[0].piece;
-            int loc = s.state[0].location;
-            
-            uint64_t pattern = 432;
-            uint64_t div = 1;
-            
-            for (int j = 0; j < piece; j++) {
-                div *= numPatternsForPiece[j];
-            }
-            
-            int x = (pattern / div) % numPatternsForPiece[piece];
-            int x1, x2;
-            
-            if(numPatternsForPiece[piece] == 1)
-            {
-                x1 = x2 = 0;
-            }
-            else if(piece == 3 || piece == 9)
-            {
-                // flip odd, even, no constraint
-                // rot: one side fits and not the other, or neither
-                x1 = x % 2 == 0 ? 0 : 3;
-                x2 = x / 2 == 0 ? 0 : 3;
-            }
-            else
-            {
-                if(numPatternsForPiece[piece] == 3)
-                {
-                    x1 = x2 = x;
-                }
-                else
-                {
-                    if(pp1 == piece || pp2 == piece)
-                    {
-                        // no - o/e
-                        x1 = x < 2 ? (x+1) : 3;
-                        x2 = x > 1 ? (x-1) : 3;
-                    }
-                    else
-                    {
-                        // o/e e/o
-                        x1 = (x / 2) + 1;
-                        x2 = (x % 2) + 1;
-                    }
-                }
-            }
-            
-            bool side1 = x1 == 0 || (x1 == 1 && ((localized_holes_side1_odd[piece][0][0]>>t)&1) == 1) || (x1 == 2 && ((localized_holes_side1_even[piece][0][0]>>t)&1) == 1);
-            bool side2 = x2 == 0 || (x2 == 1 && ((localized_holes_side1_odd[piece][0][0]>>t)&1) == 1) || (x2 == 2 && ((localized_holes_side1_even[piece][0][0]>>t)&1) == 1);
-            
+            bool side1 = x1 == 0 || (x1 == 1 && ((localized_holes_side1_odd[piece][1][1]>>t)&1) == 1) || (x1 == 2 && ((localized_holes_side1_even[piece][1][1]>>t)&1) == 1);
+            bool side2 = x2 == 0 || (x2 == 1 && ((localized_holes_side1_odd[piece][1][1]>t)&1) == 1) || (x2 == 2 && ((localized_holes_side1_even[piece][1][1]>>t)&1) == 1);
+
             int type = (side1 ? 1 : 0) + (side2 ? 2 : 0);
             
             // 0: none
@@ -3278,7 +3319,9 @@ void HexagonEnvironment::GeneratePieceCoordinates(tPieceName p)
             // 2: side 2 only
             // 3: both
             
-            std::cout << x1 << "." << x2 << "\t";
+//            std::cout << "\n" << ((localized_holes_side1_odd[piece][1][1]>>t)&1) << " " << ((localized_holes_side1_even[piece][1][1]>>t)&1) << " "<<  type << "\n";
+            
+            std::cout <<  type << "\t";
             
             // 0: full
             // 1: odd-odd or even-even //flip
@@ -3296,6 +3339,8 @@ void HexagonEnvironment::GenerateBoardBorder()
 {
 	// 1. Start with environment with only one piece type
 //	HexagonEnvironment e;
+    
+    uint64_t dots = BitsFromArray({1,3,5,7,8,10,12,14,16,17,19,21,23,25,27,29,31,33,35,37,40,42,44,46,49,51,53});
 	
 	std::cout << "Board\t";
 //	// count how many objects we have
@@ -3313,6 +3358,8 @@ void HexagonEnvironment::GenerateBoardBorder()
 		std::cout << std::fixed;
 		
 		std::cout << " " << p1 << " " << p2 << " " << p3 << "\t";
+        
+        std::cout << (((dots>>t)&1) == 1 ? 1 : 0) << "\t";
 	}
 	std::cout << "\n";
 }

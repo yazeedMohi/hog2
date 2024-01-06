@@ -13,8 +13,8 @@
 #include<cmath>
 #include <thread>
 #include <cstdlib>
-//#include "pbPlots.hpp"
-//#include "supportLib.hpp"
+#include "pbPlots.hpp"
+#include "supportLib.hpp"
 #include "vectorCache.h"
 #include <sstream>
 
@@ -127,18 +127,27 @@ const uint64_t hole_locations_orig[numPieces][3] = // 0 1
     },
     { // long piece a bit like the elbow but asymmetric
         1, // kWrench count
-        bits(0, 2, 4),//bits(0, 1, 2, 3, 4, 8)
+        bits(0, 2, 4),//bits(0, 1, 2, 3, 4, 8) TODOX revert this back
         bits(1, 3, 8),//bits(0, 1, 2, 3, 4, 8)
 
 //      bits(0, 8, 9, 10, 11, 12),//bits(0, 8, 9, 10, 11, 12)
     },
     { // triangle piece
         1, // kTriangle count
-        bits(1, 3, 10),//bits(1, 2, 3, 4, 5, 10)
-        bits(2, 4, 5),//bits(1, 2, 3, 4, 5, 10)
-
+        bits(2, 4),
+        bits(1, 3, 5, 10),
+//        bits(1, 3, 10),//bits(1, 2, 3, 4, 5, 10)
+//        bits(2, 4, 5),//bits(1, 2, 3, 4, 5, 10)
 //        bits(0, 7, 8, 9, 10, 11),//bits(0, 7, 8, 9, 10, 11)
     },
+    
+//    { // triangle piece
+//        1, // kTriangle count
+//        bits(1, 3, 10),//bits(1, 2, 3, 4, 5, 10)
+//        bits(2, 4, 5),//bits(1, 2, 3, 4, 5, 10)
+//
+////        bits(0, 7, 8, 9, 10, 11),//bits(0, 7, 8, 9, 10, 11)
+//    },
     {
         1, // kHook count
         bits(0, 9, 11),//bits(0, 1, 8, 9, 10, 11)
@@ -159,7 +168,7 @@ const uint64_t hole_locations_orig[numPieces][3] = // 0 1
         bits(1, 10, 12), //bits(0, 1, 2, 10, 11, 12)
 
 //        bits(2, 3, 4, 8, 9, 10), //bits(2, 3, 4, 8, 9, 10)
-    }
+    },
 };
 
 const uint64_t locations_orig[numPieces][14*6*2+1] =
@@ -939,6 +948,7 @@ HexagonAction HexagonEnvironment::Flip(HexagonAction a) const
 }
 
 bool all = false;
+uint64_t goldenPattern = 1143;
 
 void HexagonEnvironment::GetSuccessors(const HexagonSearchState &nodeID, std::vector<HexagonSearchState> &neighbors) const
 {
@@ -1007,7 +1017,7 @@ void HexagonEnvironment::GetActions(const HexagonSearchState &nodeID, std::vecto
                     
                     for (unsigned int x = 1; x <= locations[piece][0]; x++)
                     {
-                        if ((nodeID.bits&locations[piece][x]) == 0 && GoalValidHoles(nodeID, 432))
+                        if ((nodeID.bits&locations[piece][x]) == 0 && GoalValidHoles(nodeID, goldenPattern))
                             actions.push_back({piece, x});
                     }
                 }
@@ -1089,6 +1099,14 @@ const int numPatternsForPiece[numPieces] = {1, 1, 3, 3, 4, 4, 4, 4, 3, 3};
 // 432
 
 // 0 0 0 0 0 3 0 0 0
+
+// 1107
+
+// 0 0 0 0 3 2 3 1 0 0
+
+// 1143
+
+// 0 0 0 0 3 3 3 1 0 0
 
 
 //for (int j = 0; j < piece; j++) {
@@ -1423,7 +1441,7 @@ void HexagonEnvironment::ColorConstraintSpaceSearchParallel(std::vector<HexagonS
 }
 
 // 0/1 0/2 0/3 0/4 1/2 1/3 1/4 2/3 2/4 3/4
-int comb = 5;
+int comb = 1;
 
 void HexagonEnvironment::ColorConstraintSpaceSearchParallelExperiment(std::vector<HexagonSearchState> &goals, std::vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int numColors, int threadNum, int totalThreads, std::vector<std::vector<HexagonSearchState>> &selectedSolutions)
 {
@@ -1745,6 +1763,44 @@ void HexagonEnvironment::ColorConstraintSpaceSearchParallelExperiment(std::vecto
     
 //    std::cout<<"THREAD (" << threadNum << ") COMPLETE\n";
 }
+
+uint64_t HexagonEnvironment::BitsFromArray(std::vector<int> a) const
+{
+    uint64_t r = 0;
+    for(int i : a) r|=(((uint64_t)1)<<i);
+    return r;
+}
+
+std::string PrintBits(uint64_t bits, uint64_t holes = 0)
+{
+//    bits = 671154232;
+    std::string res = "";
+    
+    for (int i = 0; i < 54; i++) {
+        if(i == 0 || i == 47) res += "  ";
+        if(i == 7 || i == 38) res += " ";
+        
+        if(((i % 2 == 0 && i <= 6) || (i % 2 == 1 && (i > 6 && i <= 15)) || (i % 2 == 0 && (i > 15 && i <= 37)) || (i % 2 == 1 && (i > 37 && i <= 46)) || (i % 2 == 0 && (i > 46 && i <= 53))))
+        {
+            res += ((bits>>i)&1) == 0 ? "△" : (((holes>>i)&1) != 0 ? "◮" : "▲");
+//            res |= (((uint64_t)1)<<(loc+(loc < 7 ? 8 : (loc < 16 ? 10 : (loc < 27 ? 11 : (loc < 38 ? 10 : 8))))));
+        }
+        else
+        {
+            res += ((bits>>i)&1) == 0 ? "▽" : (((holes>>i)&1) != 0 ? "⧨" : "▼");
+//            res |= (((uint64_t)1)<<(loc-(loc < 16 ? 8 : (loc < 27 ? 10 : (loc < 38 ? 11 : (loc < 47 ? 10 : 8))))));
+        }
+        
+        if(i == 6) res += "  ";
+        if(i == 26 || i == 46) res += " ";
+        
+        if(i == 6 || i == 15 || i == 26 || i == 37 || i == 46)
+            res += "\n";
+    }
+    
+    return res;
+}
+
 //
 bool HexagonEnvironment::GoalValidHoles(HexagonSearchState goal, uint64_t pattern) const
 {
@@ -1752,27 +1808,38 @@ bool HexagonEnvironment::GoalValidHoles(HexagonSearchState goal, uint64_t patter
         return true;
     
     int p1, p2, y, loc, piece, location, x1, x2, x;
+    
+    p1 = comb % 4;
+    p2 = comb / 4;
+
+    if(p1 == p2) p2 = 3;
+
+    p1+=4;
+    p2+=4;
+    
     for(int p = 0; p < goal.cnt; p++)
     {
         piece = goal.state[p].piece;
         
+        location = goal.state[p].location;
+        
         if(numPatternsForPiece[piece] == 1)
         {
+//            std::cout << "\n\n" << PrintBits(locations[piece][location]) << "\n\n";
             continue;
         }
-        
-        location = goal.state[p].location;
         
         bool valid = false;
         
         uint64_t div = 1;
         
-        for (int j = 0; j < piece; j++) {
+        for (int j = 0; j < piece; j++)
+        {
             div *= numPatternsForPiece[j];
         }
         
-        x = (pattern / div) % numPatternsForPiece[piece], x1, x2;
-        
+        x = (pattern / div) % numPatternsForPiece[piece];
+
         if(piece == 3 || piece == 9)
         {
             // flip odd, even, no constraint
@@ -1810,11 +1877,13 @@ bool HexagonEnvironment::GoalValidHoles(HexagonSearchState goal, uint64_t patter
         {
             if(x1 == 0)
             {
+//                std::cout << "\n\n" << PrintBits(locations[piece][location], locations[piece][location]) << "\n\n";
                 continue;
             }
             
             if((numPatternsForPiece[piece] == 3 && !(piece == 3 || piece == 9)) && x2 == 0)
             {
+//                std::cout << "\n\n" << PrintBits(locations[piece][location], locations[piece][location]) << "\n\n";
                 continue;
             }
             
@@ -1825,6 +1894,7 @@ bool HexagonEnvironment::GoalValidHoles(HexagonSearchState goal, uint64_t patter
                     if (((goal.dots&~(x1 == 1 ? localized_holes_side1_odd : localized_holes_side1_even)[piece][location][y])&locations[piece][location]) == 0)
                     {
                         valid = true;
+//                        std::cout << "\n\n" << PrintBits(locations[piece][location], (x1 == 1 ? localized_holes_side1_odd : localized_holes_side1_even)[piece][location][y]) << "\n\n";
                         break;
                     }
                 }
@@ -1839,6 +1909,7 @@ bool HexagonEnvironment::GoalValidHoles(HexagonSearchState goal, uint64_t patter
         {
             if(x2 == 0)
             {
+//                std::cout << "\n\n" << PrintBits(locations[piece][location], locations[piece][location]) << "\n\n";
                 continue;
             }
             
@@ -1851,6 +1922,7 @@ bool HexagonEnvironment::GoalValidHoles(HexagonSearchState goal, uint64_t patter
                     if (((goal.dots&~(x2 == 1 ? localized_holes_side2_odd : localized_holes_side2_even)[piece][loc][y])&locations[piece][location]) == 0)
                     {
                         valid = true;
+//                        std::cout << "\n\n" << PrintBits(locations[piece][location], (x2 == 1 ? localized_holes_side2_odd : localized_holes_side2_even)[piece][loc][y]) << "\n\n";
                         break;
                     }
                 }
@@ -1862,15 +1934,25 @@ bool HexagonEnvironment::GoalValidHoles(HexagonSearchState goal, uint64_t patter
             }
         }
         
-        
-        return true;
+//        std::cout << "\n\nINVLAID\n\n";
+
+        return false;
     }
     
-    return false;
+    uint64_t dots = BitsFromArray({1,3,5,8,10,12,14,17,19,21,23,25,27,29,31,33,35,37,38,40,42,44,46,47,49,51,53});
+    
+//    std::cout << "\n\n" << PrintBits((((1ull)<<54)-1), dots) << "\n\n";
+//
+//    std::cout << "\n\nVALID "<< goal.index <<"\n\n";
+    
+//    int ffhx =22;
+    
+    return true;
 }
 
 std::vector<HexagonSearchState> filteredGoals;
-void HexagonEnvironment::ConstraintSpaceSearchParallel(std::vector<HexagonSearchState> goals, std::vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int threadNum, int totalThreads)
+
+void HexagonEnvironment::FilterGoalsUsingPattern(std::vector<HexagonSearchState> goals, std::vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int threadNum, int totalThreads)
 {
     long best = goals.size(), validA = 0, validB = 0, validX1 = 0, validX2 = 0, validX3 = 0, validO = 0,mostPatternGoals=0, bestPattern;
     std::vector<double> localInterestingPatterns(interestingPatterns.size());
@@ -1899,7 +1981,7 @@ void HexagonEnvironment::ConstraintSpaceSearchParallel(std::vector<HexagonSearch
     
     // hole patterns -> max solutions + max min color-constraint-configs solution
 //    for (uint64_t pattern = threadNum; pattern < numPatterns; pattern += totalThreads)
-    uint64_t pattern = 432;
+    uint64_t pattern = goldenPattern;
     {
 //        bool basic_debug = pattern % 1000000 == 0;
 //        bool debug = false;//pattern % 1000000 == 0;
@@ -1922,7 +2004,7 @@ void HexagonEnvironment::ConstraintSpaceSearchParallel(std::vector<HexagonSearch
                 std::cout << "Goal pieces " << goal.cnt << " " << i << "/" << size << "\n";
             }
             
-            goalValid = GoalValidHoles(goal, 432);
+            goalValid = GoalValidHoles(goal, goldenPattern);
 //            for(p = 0; p < goal.cnt; p++)
 //            {
 //                piece = goal.state[p].piece;
@@ -2121,6 +2203,89 @@ void HexagonEnvironment::ConstraintSpaceSearchParallel(std::vector<HexagonSearch
 //    std::cout<<"THREAD (" << threadNum << ") COMPLETE\n";
 }
 
+
+void HexagonEnvironment::ConstraintSpaceSearchParallel(std::vector<HexagonSearchState> goals, std::vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int threadNum, int totalThreads)
+{
+    long best = goals.size(), validA = 0, validB = 0, validX1 = 0, validX2 = 0, validX3 = 0, validO = 0,mostPatternGoals=0, bestPattern;
+    std::vector<double> localInterestingPatterns(interestingPatterns.size());
+    uint64_t patternGoals = 0;
+    bool debug = false;//threadNum==0;//pattern % 1000000 == 0;
+    bool goalValid, valid;
+    int location, loc, piece;
+    int size = goals.size();
+    int i,j,p,y;
+    int x, x1, x2;//, p1, p2;
+    HexagonSearchState goal;
+    
+    std::vector<double> goalxs(10);
+//
+//    p1 = comb % 4;
+//    p2 = comb / 4;
+//
+//    if(p1 == p2) p2 = 3;
+//
+//    p1+=4;
+//    p2+=4;
+    
+    // hole patterns -> max solutions + max min color-constraint-configs solution
+    for (uint64_t pattern = threadNum; pattern < numPatterns; pattern += totalThreads)
+    {
+        patternGoals = 0;
+        if(pattern % 1000000 == 0)
+        {
+            std::cout << "Pattern " << pattern << " / " << numPatterns << " ("<< ((pattern*100)/numPatterns) << "%)" << "\n";
+        }
+                
+        for (i = 0; i < size; i++)
+        {
+            goal = goals[i];
+            goalValid = true;
+            
+            if(debug)
+            {
+                std::cout << "Goal pieces " << goal.cnt << " " << i << "/" << size << "\n";
+            }
+            
+            goalValid = GoalValidHoles(goal, pattern);
+                                    
+            if(goalValid)
+            {
+                patternGoals++;
+            }
+        }
+        
+        localInterestingPatterns[patternGoals]++;
+        
+        if(patternGoals > mostPatternGoals)
+        {
+            mostPatternGoals = patternGoals;
+            bestPattern = pattern;
+        }
+    }
+    
+    patternLock.lock();
+    
+    for(i = 0; i < interestingPatterns.size(); i++)
+        interestingPatterns[i] += localInterestingPatterns[i];
+//
+//    validAGlobal+=validA;
+//    validBGlobal+=validB;
+//    validX1Global+=validX1;
+//    validX2Global+=validX2;
+//    validX3Global+=validX3;
+//    validOGlobal+=validO;
+//
+    if(mostPatternGoals > mostPatternGoalsGlobal)
+    {
+        mostPatternGoalsGlobal = mostPatternGoals;
+        bestPatternGlobal = bestPattern;
+    }
+    
+    patternLock.unlock();
+    
+    std::cout<<"THREAD (" << threadNum << ") COMPLETE\n";
+}
+
 // eliminate invalid pieces
 // use vector rather than dict
 // batch writes
@@ -2151,7 +2316,7 @@ void HexagonEnvironment::ConstraintSpaceSearchParallel(std::vector<HexagonSearch
 //    kTrapezoid = 8
 //    kSnake = 9
 
-void HexagonEnvironment::ConstraintSpaceSearch(std::vector<HexagonSearchState> goals, std::vector<std::vector<HexagonSearchState>> &selectedSolutions)
+void HexagonEnvironment::FullAnalysis(std::vector<HexagonSearchState> goals, std::vector<std::vector<HexagonSearchState>> &selectedSolutions)
 {
     all = true;
 
@@ -2173,7 +2338,7 @@ void HexagonEnvironment::ConstraintSpaceSearch(std::vector<HexagonSearchState> g
     
     
 //    for (comb = 0; comb < 12; comb++)
-    comb = 5;
+//    comb = 5;
     {
         mostPatternGoalsGlobal = 0;
         std::cout << "\n------------------------------------------------------\n";
@@ -2186,7 +2351,7 @@ void HexagonEnvironment::ConstraintSpaceSearch(std::vector<HexagonSearchState> g
         
         for (int i = 0; i < THREADS; i++)
         {
-            v.emplace_back(&HexagonEnvironment::ConstraintSpaceSearchParallel, this, goals, std::ref(interestingPatterns), THRESHOLD, numPatterns, i, THREADS);
+            v.emplace_back(&HexagonEnvironment::FilterGoalsUsingPattern, this, goals, std::ref(interestingPatterns), THRESHOLD, numPatterns, i, THREADS);
         }
         
         for (auto& t : v)
@@ -2509,6 +2674,142 @@ void HexagonEnvironment::ConstraintSpaceSearch(std::vector<HexagonSearchState> g
 }
 
 
+void HexagonEnvironment::ConstraintSpaceSearch(std::vector<HexagonSearchState> goals)
+{
+    all = true;
+
+    int THREADS = 8;
+    
+    int numColors = 5;
+
+    uint64_t numPatterns = 1;
+    
+    for (int i = 0; i < numPieces; i++) {
+        numPatterns *= numPatternsForPiece[i];
+    }
+    
+//    numPatterns *= (numColors-1) * (numColors) / 2;
+//    numPatterns *= 5;
+    
+//    numPatterns *= pow(numColors, pieces.size());
+    
+    
+    for (comb = 0; comb < 12; comb++)
+    {
+        int combwas = comb;
+        mostPatternGoalsGlobal = 0;
+        std::cout << "\n------------------------------------------------------\n";
+        std::cout << "Comination: " << comb;
+        std::cout << "\n------------------------------------------------------\n";
+        std::vector<std::thread> v;
+        std::vector<std::thread> v2;
+        
+        std::vector<double> interestingPatterns(goals.size()+1);
+        
+        for (int i = 0; i < THREADS; i++)
+        {
+            v.emplace_back(&HexagonEnvironment::ConstraintSpaceSearchParallel, this, goals, std::ref(interestingPatterns), 0, numPatterns, i, THREADS);
+        }
+        
+        for (auto& t : v)
+        {
+            t.join();
+        }
+        
+        std::cout << "\n------------------------------------------------------\n";
+        std::cout << "Finished hole space search";
+        std::cout << "\n------------------------------------------------------\n";
+        
+//        filteredGoals = goals;//TODOX
+        
+//        selectedSolutions[0] = filteredGoals;
+        
+//        std::cout << "\n------------------------------------------------------\n";
+//        std::cout << "Running color space search...";
+//        std::cout << "\n------------------------------------------------------\n";
+//
+//        for (int i = 0; i < THREADS; i++) {
+//            v2.emplace_back(&HexagonEnvironment::ColorConstraintSpaceSearchParallelExperiment, this, std::ref(filteredGoals), std::ref(interestingPatterns), THRESHOLD, numPatterns, numColors, i, THREADS, std::ref(selectedSolutions));
+//        }
+//
+//        for (auto& t : v2) {
+//            t.join();
+//        }
+//
+//        std::cout << "\n------------------------------------------------------\n";
+//        std::cout << "Finished color space search...";
+//        std::cout << "\n------------------------------------------------------\n";
+        
+//        for (int i = 0; i < filteredGoals.size(); i++)
+//        {
+//            std::cout << "Goal: " << i << " patterns: " << interestingPatterns[i] << "\n";
+//        }
+//
+//        std::cout << "\n------------------------------------------------------\n";
+//        std::cout << "Smallest bin goal: " << bestPatternGlobal << " | Number of color patterns: " << mostPatternGoalsGlobal;
+//        std::cout << "\n------------------------------------------------------\n\n";
+        
+        
+        for (int i = 0; i < mostPatternGoalsGlobal+1; i++) {
+            std::cout << "Goals: " << i << " patterns: " << interestingPatterns[i] << "\n";
+        }
+
+        std::cout << "\n------------------------------------------------------\n";
+        std::cout << "Best pattern: " << bestPatternGlobal << " | Most pattern goals: " << mostPatternGoalsGlobal;
+        std::cout << "\n------------------------------------------------------\n\n";
+        
+        
+        std::vector<double> nums(goals.size()+1);
+
+        for (int i = 0; i < nums.size(); i++) {
+            nums[i] = i;
+        }
+        
+        bool success;
+        StringReference *errorMessage = CreateStringReferenceLengthValue(0, L' ');
+        RGBABitmapImageReference *imageReference = CreateRGBABitmapImageReference();
+
+        success = DrawScatterPlot(imageReference, 1024, 1024, &nums, &interestingPatterns, errorMessage);
+
+        if(success){
+            std::vector<double> *pngdata = ConvertToPNG(imageReference->image);
+            WriteToFile(pngdata, "/Users/yazeedsabil/Desktop/Temp/svgs_clean/0example" +std::to_string(comb)+".png");
+            DeleteImage(imageReference->image);
+            std::cout << "image gen success";
+        }else{
+            std::cerr << "Error: ";
+            for(wchar_t c : *errorMessage->string){
+                std::wcerr << c;
+            }
+            std::cerr << std::endl;
+
+            std::cout << errorMessage->string;
+        }
+        
+        FreeAllocations();
+        
+        
+    }
+    
+
+    
+//    std::ofstream ofs("/Users/yazeedsabil/Desktop/svgs_clean/hexagon.txt");
+
+    // create class instance
+//    std::map<int,string> whatever;
+
+    // populate map.
+
+    // save data to archive
+//    {
+//        boost::archive::text_oarchive oa(ofs);
+//        // write map instance to archive
+//        oa << interestingPatterns;
+//        // archive and stream closed when destructors are called
+//    }
+}
+
+
 
 //QUE: is this on purpose?
 HexagonAction HexagonEnvironment::GetAction(const HexagonSearchState &s1, const HexagonSearchState &s2) const
@@ -2562,39 +2863,6 @@ uint64_t HexagonEnvironment::GetActionHash(HexagonAction act) const
 }
 
 
-std::string PrintBits(uint64_t bits)
-{
-//    bits = 671154232;
-    std::string res = "";
-    
-    for (int i = 0; i < 54; i++) {
-        if(i == 0 || i == 47) res += "  ";
-        if(i == 7 || i == 38) res += " ";
-        
-        
-        
-        if(((i % 2 == 0 && i <= 6) || (i % 2 == 1 && (i > 6 && i <= 15)) || (i % 2 == 0 && (i > 15 && i <= 37)) || (i % 2 == 1 && (i > 37 && i <= 46)) || (i % 2 == 0 && (i > 46 && i <= 53))))
-        {
-            res += ((bits>>i)&1) == 0 ? "△" : "▲";
-//            res |= (((uint64_t)1)<<(loc+(loc < 7 ? 8 : (loc < 16 ? 10 : (loc < 27 ? 11 : (loc < 38 ? 10 : 8))))));
-        }
-        else
-        {
-            res += ((bits>>i)&1) == 0 ? "▽" : "▼";
-//            res |= (((uint64_t)1)<<(loc-(loc < 16 ? 8 : (loc < 27 ? 10 : (loc < 38 ? 11 : (loc < 47 ? 10 : 8))))));
-        }
-        
-        
-        
-        if(i == 6) res += "  ";
-        if(i == 26 || i == 46) res += " ";
-        
-        if(i == 6 || i == 15 || i == 26 || i == 37 || i == 46)
-            res += "\n";
-    }
-    
-    return res;
-}
 
 // entropyRecur()
 // from the given state
@@ -3099,6 +3367,7 @@ float HexagonEnvironment::GetEntropy(HexagonSearchState &s) const
 
     if (!(req1 == 0 && req2 == -1))
     {
+        
         for (auto &succ : succs)
         {
             if((req1 != 0 && (succ.bits & req1) == 6) || (req2 != -1 && succ.state[succ.cnt - 1].piece == req2))
@@ -3240,7 +3509,7 @@ void HexagonEnvironment::GeneratePieceCoordinates(tPieceName p)
     
     std::cout << count << "\n";//piece
 
-    uint64_t pattern = 432;
+    uint64_t pattern = goldenPattern;
     uint64_t div = 1;
 
     for (int j = 0; j < piece; j++) {
@@ -3292,6 +3561,14 @@ void HexagonEnvironment::GeneratePieceCoordinates(tPieceName p)
 //    std::cout << "G 2: " << std::bitset<54>(localized_holes_side2_odd[piece][1][1]) << "\n";
 //    std::cout << "G 3: " << std::bitset<54>(localized_holes_side2_even[piece][1][1]) << "\n";
     
+    std::cout << "\n\n" << x ;
+    std::cout << "\n\n" << PrintBits(state,localized_holes_side1_odd[piece][1][1]) << "\n\n";
+    std::cout << "\n\n" << PrintBits(state,localized_holes_side1_even[piece][1][1]) << "\n\n";
+//    std::cout << "\n\n" << PrintBits(localized_holes_side1_odd[piece][1][1]) << "\n\n";
+//    std::cout << "\n\n" << PrintBits(localized_holes_side1_even[piece][1][1]) << "\n\n";
+//    std::cout << "\n\n" << PrintBits(localized_holes_side2_odd[piece][1][1]) << "\n\n";
+//    std::cout << "\n\n" << PrintBits(localized_holes_side2_even[piece][1][1]) << "\n\n";
+    
 	// drawing doesn't have to be so fast! (compared to enumeration operations)
     //
 	for (int t = 0; t < 54; t++)
@@ -3334,13 +3611,15 @@ void HexagonEnvironment::GeneratePieceCoordinates(tPieceName p)
 	std::cout << "\n";
 }
 
-/** Prints out the outer coorsinates of the board*/
+/** Prints out the outer coorsinates of the board */
 void HexagonEnvironment::GenerateBoardBorder()
 {
 	// 1. Start with environment with only one piece type
 //	HexagonEnvironment e;
     
-    uint64_t dots = BitsFromArray({1,3,5,7,8,10,12,14,16,17,19,21,23,25,27,29,31,33,35,37,40,42,44,46,49,51,53});
+    uint64_t dots = BitsFromArray({1,3,5,8,10,12,14,17,19,21,23,25,27,29,31,33,35,37,38,40,42,44,46,47,49,51,53});
+    
+    std::cout << "\n\n" << PrintBits((((1ull)<<54)-1), dots) << "\n\n";
 	
 	std::cout << "Board\t";
 //	// count how many objects we have
@@ -3650,13 +3929,6 @@ void Hexagon::Load(const char *file, HexagonState &s, bool solution)
 //
 //}
 
-
-uint64_t HexagonEnvironment::BitsFromArray(std::vector<int> a)
-{
-    uint64_t r = 0;
-    for(int i : a) r|=(((uint64_t)1)<<i);
-    return r;
-}
 
 HexagonSearchState HexagonEnvironment::GetInitState(HexagonSearchState &hss)
 {

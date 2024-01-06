@@ -218,9 +218,11 @@ public:
 	
 	void GetSuccessors(const HexagonSearchState &nodeID, std::vector<HexagonSearchState> &neighbors) const;
 	void GetActions(const HexagonSearchState &nodeID, std::vector<HexagonAction> &actions) const;
-    void ConstraintSpaceSearch(std::vector<HexagonSearchState> goals, std::vector<std::vector<HexagonSearchState>> &selectedPuzzles);
+    void FullAnalysis(std::vector<HexagonSearchState> goals, std::vector<std::vector<HexagonSearchState>> &selectedPuzzles);
+    void ConstraintSpaceSearch(std::vector<HexagonSearchState> goals);
 //    void ConstraintSpaceSearchParallel(std::vector<HexagonSearchState> goals, std::vector<int> pieces, std::map<uint64_t, int> interestingPatterns, int THRESHOLD, uint64_t numPatterns, int threadNum, int totalThreads);
     void ConstraintSpaceSearchParallel(std::vector<HexagonSearchState> goals, std::vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int threadNum, int totalThreads);
+    void FilterGoalsUsingPattern(std::vector<HexagonSearchState> goals, std::vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int threadNum, int totalThreads);
     
     void ColorConstraintSpaceSearchParallel(std::vector<HexagonSearchState> goals, std::vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int numColors, int threadNum, int totalThreads);
     
@@ -307,7 +309,7 @@ public:
     uint64_t LocationCanOnlyFitACertainPieceReqRule(const HexagonSearchState &s) const;
     int PieceCanOnlyGoInOnePlaceReqRule(const HexagonSearchState &s) const;
     
-    uint64_t BitsFromArray(std::vector<int> a);
+    uint64_t BitsFromArray(std::vector<int> a) const;
     void BuildLocationTable();//;int[] &bits, std::vector<int[]> &table)
     void BuildHolesTable();//;int[] &bits, std::vector<int[]> &table)
     void ConvertToSearchState();

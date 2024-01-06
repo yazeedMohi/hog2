@@ -22,7 +22,8 @@
 //#include "matplotlibcpp.h"
 //namespace plt = matplotlibcpp;
 
-bool recording = false, svg = true, dotted = false;
+int cutoff = INT_MAX, maxPuzzlesPerCat = 100;//673;//INT_MAX
+bool recording = false, svg = true, dotted = true;
 bool saveAndExit = false;
 std::string filename, outputFile;
 Hexagon h;
@@ -55,7 +56,8 @@ void InstallHandlers()
 	InstallKeyboardHandler(MyDisplayHandler, "All", "Get All Goals", kAnyModifier, 'a');
 	InstallKeyboardHandler(MyDisplayHandler, "Flip", "Flip Board", kAnyModifier, 'f');
 	InstallKeyboardHandler(MyDisplayHandler, "Rotate", "Rotate Board", kAnyModifier, 'r');
-	InstallKeyboardHandler(MyDisplayHandler, "Analyze1", "Analyze which piece to remove", kAnyModifier, 'p');
+    InstallKeyboardHandler(MyDisplayHandler, "Analyze1", "Analyze which piece to remove", kAnyModifier, 'p');
+    InstallKeyboardHandler(MyDisplayHandler, "Search", "Constraint space search", kAnyModifier, 'c');
 	InstallKeyboardHandler(MyDisplayHandler, "Analyze2", "Analyze which pieces to make unflippable", kAnyModifier, 'o');
 	InstallKeyboardHandler(MyDisplayHandler, "Get Coordinates", "Get baseline coordinates of all pieces", kAnyModifier, '=');
 
@@ -493,47 +495,36 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	return 0;
 }
 
-int cutoff = 50;//INT_MAX;//673;
-uint64_t oddDots = he.BitsFromArray({1,3,5,7,8,10,12,14,16,17,19,21,23,25,27,29,31,33,35,37,40,42,44,46,49,51,53});
+uint64_t oddDots = he.BitsFromArray({1,3,5,8,10,12,14,17,19,21,23,25,27,29,31,33,35,37,38,40,42,44,46,47,49,51,53});
+//uint64_t oddDots = he.BitsFromArray({1,3,5,7,8,10,12,14,16,17,19,21,23,25,27,29,31,33,35,37,40,42,44,46,49,51,53});
 
-void AnalyzeWhichPiecesToUse()
+void GetAllSolutions()
 {
-	// Clear and then set the items
-	std::array<tFlipType, numPieces> toFlip;
-	for (int x = 0; x < numPieces; x++)
-		toFlip[x] = kHoles;
-	he.SetFlippable(toFlip);
-	
-	const std::vector<tPieceName> allPieces =
-    {kLine, kMountains, kWrench, kTriangle, kHook, kSnake, kHexagon, kElbow, kButterfly, kTrapezoid, kTrapezoid};//TODOX put swap hex with trapezoid kHexagon
+    std::array<tFlipType, numPieces> toFlip;
+    for (int x = 0; x < numPieces; x++)
+        toFlip[x] = kHoles;
+    he.SetFlippable(toFlip);
     
-//    const std::vector<tPieceName> allPieces = {kElbow, kLine, kMountains, kWrench, kTriangle, kHook, kSnake, kButterfly, kTrapezoid, kTrapezoid};
-//    he.SetPieces(allPieces);
-//    MyDisplayHandler(0, kNoModifier, 'a');
+    const std::vector<tPieceName> allPieces =
+    {kLine, kMountains, kWrench, kTriangle, kHook, kSnake, kHexagon, kElbow, kButterfly, kTrapezoid, kTrapezoid};
 
-	std::vector<tPieceName> pieces;
+    std::vector<tPieceName> pieces;
 
-	for (int x = 0; x < allPieces.size() - 1; x++)//allPieces.size() - 1
-	{
-		pieces = allPieces;
-//
-//        for (int r = 0; r < selectedSolutions[i][j].cnt; r++) {
-//            tPieceName x = static_cast<tPieceName>(selectedSolutions[i][j].state[r].piece);
-//            pcs.push_back(x);
-////                    std::cout<<"Piece: " << selectedSolutions[i][j].state[r].piece << " " << pieceNames[selectedSolutions[i][j].state[r].piece] << "\n";
-//        }
-        
+    for (int x = 0; x < allPieces.size() - 1; x++)//allPieces.size() - 1
+    {
+        pieces = allPieces;
+
         forbiddenPiece = pieces[x];
         
-		printf("%s%s ", pieceNames[allPieces[x]].c_str(), (toFlip[x]==kSide1)?"1":(toFlip[x]==kSide2)?"2":"");
-		pieces.erase(pieces.begin()+x);
-		he.SetPieces(pieces);
-		MyDisplayHandler(0, kNoModifier, 'a');
+        printf("%s%s ", pieceNames[allPieces[x]].c_str(), (toFlip[x]==kSide1)?"1":(toFlip[x]==kSide2)?"2":"");
+        pieces.erase(pieces.begin()+x);
+        he.SetPieces(pieces);
+        MyDisplayHandler(0, kNoModifier, 'a');
         
         if(goals.size() >= cutoff)
             break;
-	}
-//	// now remove trapezoids
+    }
+
     if(goals.size() < cutoff)
     {
         pieces = allPieces;
@@ -541,18 +532,24 @@ void AnalyzeWhichPiecesToUse()
         pieces.pop_back();
         
         forbiddenPiece = kTrapezoid;
-        //	printf("%s ", pieceNames[allPieces[9]].c_str());
-        //			printf("Piece set: ");
-        //			for (auto i : pieces)
-        //				printf("%d ", (int)i);
-        //			printf("\n");
         he.SetPieces(pieces);
         MyDisplayHandler(0, kNoModifier, 'a');
     }
+}
+
+void ConstraintSpaceSearch()
+{
+    GetAllSolutions();
+    he.ConstraintSpaceSearch(goals);
+}
+    
+void PerformFullAnalysis()
+{
+    GetAllSolutions();
     
     std::vector<std::vector<HexagonSearchState>> selectedSolutions(6);
     
-    he.ConstraintSpaceSearch(goals, selectedSolutions);
+    he.FullAnalysis(goals, selectedSolutions);
     
     std::cout << "\n------------------------------------------------------\n";
     std::cout << "Generating full solution SVGs...";
@@ -565,7 +562,7 @@ void AnalyzeWhichPiecesToUse()
         
         std::vector<int> solCounts(goals.size());
         
-        for (int j = 0; j < selectedSolutions[i].size(); j++)
+        for (int j = 0; j < min(selectedSolutions[i].size(), maxPuzzlesPerCat); j++)
         {
             Graphics::Display d;
         
@@ -581,6 +578,7 @@ void AnalyzeWhichPiecesToUse()
             
             h.Draw(d);
             h.Draw(d, hs);
+            
             if(svg)
                 MakeSVG(d, fileName.c_str(), 1024, 1024);
         }
@@ -596,11 +594,26 @@ void AnalyzeWhichPiecesToUse()
     std::cout << "Calculating entropies...";
     std::cout << "\n------------------------------------------------------\n";
     
-    for (int i = 0; i < 1; i++)
+    for (int i = 0; i < 6; i++)
     {
-        std::cout << "\nAnalyzing group: " << i << " ("<< selectedSolutions[i].size() << " items)\n\n";
-        for (int j = 0; j < selectedSolutions[i].size(); j++)
+        std::cout << "\nAnalyzing group: " << i << " ("<< selectedSolutions[i].size() << " items)\n";
+        for (int j = 0; j < min(selectedSolutions[i].size(), maxPuzzlesPerCat); j++)
         {
+//            printf("\r%d", j);
+//            std::cout << "\r" << std::to_string(j);
+            
+//            std::cout << "\r" << (j+1) << "/" << selectedSolutions[i].size() << std::flush;
+            
+//            static const std::string sequence = "|/-\\";
+//            auto duration = 5;
+//            auto duration_step = 250000;
+            
+//            for (auto i = 0; i < (duration/duration_step); ++i)
+//            {
+//              std::cout << "\r" << sequence[i%sequence.size()] << std::flush;
+//              std::this_thread::sleep_for(duration_step);
+//            }
+
             std::vector<tPieceName> pcs;
             for (int r = 0; r < selectedSolutions[i][j].cnt; r++)
             {
@@ -627,34 +640,18 @@ void AnalyzeWhichPiecesToUse()
     mkdir("/Users/yazeedsabil/Desktop/Temp/gen_puzzles_init/", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 
     for (int i = 0; i < 6; i++) {
-        mkdir(("/Users/yazeedsabil/Desktop/Temp/gen_puzzles_init/"+std::to_string(i)).c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+        mkdir(("/Users/yazeedsabil/Desktop/Temp/gen_puzzles_init/" + std::to_string(i)).c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
         std::vector<int> solCounts(goals.size());
-        for (int j = 0; j < selectedSolutions[i].size(); j++) {
+        for (int j = 0; j < min(selectedSolutions[i].size(), maxPuzzlesPerCat); j++) {
             Graphics::Display d;
         
-            std::string fileName = "/Users/yazeedsabil/Desktop/Temp/gen_puzzles_init/"+ std::to_string(i) +"/" + std::to_string(selectedSolutions[i][j].index) + "-" + std::to_string(solCounts[selectedSolutions[i][j].index])+ ".svg";
+            std::string fileName = "/Users/yazeedsabil/Desktop/Temp/gen_puzzles_init/" + std::to_string(i) + "/" + std::to_string(selectedSolutions[i][j].entropy) + "-" + std::to_string(selectedSolutions[i][j].index) + "-" + std::to_string(solCounts[selectedSolutions[i][j].index]) + ".svg";
         
             solCounts[selectedSolutions[i][j].index]++;
             
 //            selectedSolutions[i][j].dots = i == 0 ? 0 : oddDots;
                     
             he.ConvertToHexagonState(selectedSolutions[i][j], hs, selectedSolutions[i][j].initState);
-            
-//            if(i == 0)
-//            {
-//                std::vector<tPieceName> pcs;
-//                for (int r = 0; r < selectedSolutions[i][j].cnt; r++)
-//                {
-//                    tPieceName x = static_cast<tPieceName>(selectedSolutions[i][j].state[r].piece);
-//                    pcs.push_back(x);
-//                }
-//
-//                he.SetPieces(pcs);
-//
-//                init = he.GetInitState(selectedSolutions[i][j]);
-//                hs.entropy = he.GetEntropy(init);
-////                std::cout << "Entropy [" << selectedSolutions[i][j].index << "] = " << hs.entropy << "\n";
-//            }
             
             hs.forbiddenPiece = selectedSolutions[i][j].forbiddenPiece;
             hs.entropy = selectedSolutions[i][j].entropy;
@@ -869,9 +866,12 @@ void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
 		case 'o':
 			AnalyzeWhichPiecesToFlip();
 			break;
-		case 'p':
-			AnalyzeWhichPiecesToUse();
-			break;
+        case 'p':
+            PerformFullAnalysis();
+            break;
+        case 'c':
+            ConstraintSpaceSearch();
+            break;
 		case '=':
 		{
             std::cout<<"\n\nGENERATING PIECE COORDS..\n\n";

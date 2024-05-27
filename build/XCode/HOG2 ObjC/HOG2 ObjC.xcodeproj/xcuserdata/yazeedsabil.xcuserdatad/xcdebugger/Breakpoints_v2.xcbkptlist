@@ -14,9 +14,9 @@
             filePath = "../../../environments/Hexagon.cpp"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "2365"
-            endingLineNumber = "2365"
-            landmarkName = "HexagonEnvironment::FullAnalysis(goals, selectedSolutions)"
+            startingLineNumber = "2418"
+            endingLineNumber = "2418"
+            landmarkName = "HexagonEnvironment::FullAnalysis(goals, selectedSolutions, categories)"
             landmarkType = "7">
             <Locations>
                <Location

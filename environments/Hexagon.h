@@ -21,6 +21,8 @@
 #include <functional>
 #include <vector>
 
+using namespace std;
+
 enum tPieceName {
 	kHexagon = 0,
 	kButterfly = 1,
@@ -42,7 +44,7 @@ enum tFlipType {
 };
 
 const int numPieces = 10;
-const std::string pieceNames[numPieces] =
+const string pieceNames[numPieces] =
 {
 	"Hexagon",
 	"Butterfly",
@@ -71,7 +73,7 @@ public:
 	HexagonState()
 	:state(60) {}
 	NBitArray<4> state;
-    std::vector<int> constraints;
+    vector<int> constraints;
     float entropy;
     uint64_t dots;
     int forbiddenPiece;
@@ -93,7 +95,7 @@ static bool operator==(const HexagonState &l1, const HexagonState &l2)
     return true;//l1.state == l2.state;
 }
 
-static std::ostream &operator<<(std::ostream &out, const HexagonAction &a)
+static ostream &operator<<(ostream &out, const HexagonAction &a)
 {
 	return out;
 }
@@ -109,8 +111,8 @@ public:
 	~Hexagon();
 	void LoadPuzzle(const char *, HexagonState &s);
 	void LoadSolution(const char *, HexagonState &s);
-	void GetSuccessors(const HexagonState &nodeID, std::vector<HexagonState> &neighbors) const;
-	void GetActions(const HexagonState &nodeID, std::vector<HexagonAction> &actions) const;
+	void GetSuccessors(const HexagonState &nodeID, vector<HexagonState> &neighbors) const;
+	void GetActions(const HexagonState &nodeID, vector<HexagonAction> &actions) const;
 
     
 	HexagonAction GetAction(const HexagonState &s1, const HexagonState &s2) const;
@@ -144,12 +146,12 @@ private:
 	bool GetBorder(int x, int y, int xoff, int yoff, Graphics::point &p1, Graphics::point &p2) const;
 	bool Valid(int x, int y) const;
 	HexagonState solution;
-	std::vector<rgbColor> pieceColors;
-    std::vector<int> diagPieces;
-    std::vector<int> notDiagPieces;
-	std::vector<int> noFlipPieces;
-	std::vector<int> notTouchPieces;
-	std::vector<int> touchPieces;
+	vector<rgbColor> pieceColors;
+    vector<int> diagPieces;
+    vector<int> notDiagPieces;
+	vector<int> noFlipPieces;
+	vector<int> notTouchPieces;
+	vector<int> touchPieces;
 };
 //bits(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53)
 class HexagonSearchState
@@ -166,12 +168,12 @@ public:
 //        dots = 0;
     }
     uint64_t bits, dots;
-    std::array<bool, 121> edgeAdjacencies, cornerAdjacencies;
-    std::vector<int> constraints, allConstraints;
-    std::vector<uint64_t> emptySpaces;
-	int cnt, index, initState, forbiddenPiece;
-    float entropy;
-	std::array<HexagonAction, 12> state;
+    array<bool, 121> edgeAdjacencies, cornerAdjacencies;
+    vector<int> constraints, allConstraints, addedInitPieces;
+    vector<uint64_t> emptySpaces;
+	int cnt, index, initState = -1, forbiddenPiece;
+    float entropy, entropyWithAddedPieces;
+	array<HexagonAction, 12> state;
 //	NBitArray<4> state;
 };
 
@@ -184,7 +186,7 @@ static bool operator==(const HexagonSearchState &l1, const HexagonSearchState &l
 {
 	if (l1.bits != l2.bits || l1.cnt != l2.cnt)
     {
-//        std::cout << "Not Equal\n";
+//        cout << "Not Equal\n";
         return false;
     }
 	for (int x = 0; x < l1.cnt; x++)
@@ -201,7 +203,7 @@ static bool operator==(const HexagonSearchState &l1, const HexagonSearchState &l
 		if (!found)
 			return false;
 	}
-//    std::cout << "Equal! \n";
+//    cout << "Equal! \n";
 	return true;
 }
 
@@ -212,21 +214,24 @@ class HexagonEnvironment : public SearchEnvironment<HexagonSearchState, HexagonA
 public:
 	HexagonEnvironment();
 	~HexagonEnvironment();
-	void SetPieces(const std::vector<tPieceName> &pieces);
-    std::vector<int> GetPieces();
-	void SetFlippable(const std::array<tFlipType, numPieces> &flips);
+	void SetPieces(const vector<tPieceName> &pieces);
+    vector<int> GetPieces();
+	void SetFlippable(const array<tFlipType, numPieces> &flips);
 	
-	void GetSuccessors(const HexagonSearchState &nodeID, std::vector<HexagonSearchState> &neighbors) const;
-	void GetActions(const HexagonSearchState &nodeID, std::vector<HexagonAction> &actions) const;
-    void FullAnalysis(std::vector<HexagonSearchState> goals, std::vector<std::vector<HexagonSearchState>> &selectedPuzzles);
-    void ConstraintSpaceSearch(std::vector<HexagonSearchState> goals);
-//    void ConstraintSpaceSearchParallel(std::vector<HexagonSearchState> goals, std::vector<int> pieces, std::map<uint64_t, int> interestingPatterns, int THRESHOLD, uint64_t numPatterns, int threadNum, int totalThreads);
-    void ConstraintSpaceSearchParallel(std::vector<HexagonSearchState> goals, std::vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int threadNum, int totalThreads);
-    void FilterGoalsUsingPattern(std::vector<HexagonSearchState> goals, std::vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int threadNum, int totalThreads);
+	void GetSuccessors(const HexagonSearchState &nodeID, vector<HexagonSearchState> &neighbors) const;
+	void GetActions(const HexagonSearchState &nodeID, vector<HexagonAction> &actions) const;
+    void GetActions2(const HexagonSearchState &nodeID, vector<HexagonAction> &actions) const;
+    void FullAnalysis(vector<HexagonSearchState> goals, vector<vector<HexagonSearchState>> &selectedPuzzles, int categories);
+    void ConstraintSpaceSearch(vector<HexagonSearchState> goals);
+//    void ConstraintSpaceSearchParallel(vector<HexagonSearchState> goals, vector<int> pieces, map<uint64_t, int> interestingPatterns, int THRESHOLD, uint64_t numPatterns, int threadNum, int totalThreads);
+    void ConstraintSpaceSearchParallel(vector<HexagonSearchState> goals, vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int threadNum, int totalThreads);
+    void FilterGoalsUsingPattern(vector<HexagonSearchState> goals, vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int threadNum, int totalThreads);
     
-    void ColorConstraintSpaceSearchParallel(std::vector<HexagonSearchState> goals, std::vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int numColors, int threadNum, int totalThreads);
-    
-    void ColorConstraintSpaceSearchParallelExperiment(std::vector<HexagonSearchState> &goals, std::vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int numColors, int threadNum, int totalThreads, std::vector<std::vector<HexagonSearchState>> &selectedSolutions);
+    void ColorConstraintSpaceSearchParallel(vector<HexagonSearchState> goals, vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int numColors, int threadNum, int totalThreads);
+
+    void AddPiecesToInitState(HexagonSearchState &hss, int pieces, bool chooseEasiest);
+
+    void ColorConstraintSpaceSearchParallelExperiment(vector<HexagonSearchState> &goals, vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int numColors, int threadNum, int totalThreads, vector<vector<HexagonSearchState>> &selectedSolutions);
     
     // @param[in] nb_elements : size of your for loop
     /// @param[in] functor(start, end) :
@@ -242,17 +247,17 @@ public:
     ///
     static
     void parallel_for(unsigned nb_elements,
-                      std::function<void (int start, int end)> functor,
+                      function<void (int start, int end)> functor,
                       bool use_threads = true)
     {
         // -------
-        unsigned nb_threads_hint = std::thread::hardware_concurrency();
+        unsigned nb_threads_hint = thread::hardware_concurrency();
         unsigned nb_threads = nb_threads_hint == 0 ? 8 : (nb_threads_hint);
 
         unsigned batch_size = nb_elements / nb_threads;
         unsigned batch_remainder = nb_elements % nb_threads;
 
-        std::vector< std::thread > my_threads(nb_threads);
+        vector< thread > my_threads(nb_threads);
 
         if( use_threads )
         {
@@ -260,7 +265,7 @@ public:
             for(unsigned i = 0; i < nb_threads; ++i)
             {
                 int start = i * batch_size;
-                my_threads[i] = std::thread(functor, start, start+batch_size);
+                my_threads[i] = thread(functor, start, start+batch_size);
             }
         }
         else
@@ -278,7 +283,7 @@ public:
 
         // Wait for the other thread to finish their task
         if( use_threads )
-            std::for_each(my_threads.begin(), my_threads.end(), std::mem_fn(&std::thread::join));
+            for_each(my_threads.begin(), my_threads.end(), mem_fn(&thread::join));
     }
     
 	HexagonAction GetAction(const HexagonSearchState &s1, const HexagonSearchState &s2) const;
@@ -295,10 +300,11 @@ public:
 	void Flip(HexagonSearchState &s) const;
 	HexagonAction Flip(HexagonAction a) const;
     
-    void ConvertToHexagonState(HexagonSearchState &hss, HexagonState &hs, int initPattern = -1);
-    HexagonSearchState GetInitState(HexagonSearchState &hss);
-    float GetEntropy(HexagonSearchState &s) const;
-    
+    void ConvertToHexagonState(HexagonSearchState &hss, HexagonState &hs, bool fill = false);
+    HexagonSearchState GetInitState(HexagonSearchState &hss, vector<int> *addedInitPieces = nullptr);
+    float GetEntropy(HexagonSearchState &s, short mode = 0b111) const;
+    void GetInferenceActions(const HexagonSearchState &s, vector<HexagonAction> &actions, short mode) const;
+
     void GetEmptySpaces(HexagonSearchState &s) const;
     
     bool GoalValidHoles(HexagonSearchState goal, uint64_t pattern) const;
@@ -309,11 +315,12 @@ public:
     uint64_t LocationCanOnlyFitACertainPieceReqRule(const HexagonSearchState &s) const;
     int PieceCanOnlyGoInOnePlaceReqRule(const HexagonSearchState &s) const;
     
-    uint64_t BitsFromArray(std::vector<int> a) const;
-    void BuildLocationTable();//;int[] &bits, std::vector<int[]> &table)
-    void BuildHolesTable();//;int[] &bits, std::vector<int[]> &table)
+    uint64_t BitsFromArray(vector<int> a) const;
+    string PrintBits(uint64_t bits, uint64_t holes = 0) const;
+    void BuildLocationTable();//;int[] &bits, vector<int[]> &table)
+    void BuildHolesTable();//;int[] &bits, vector<int[]> &table)
     void ConvertToSearchState();
-    std::string PrintHexagonState(HexagonState &hs);
+    string PrintHexagonState(HexagonState &hs);
 
 //    void ConvertToHexagonState(HexagonSearchState *s)
 	/** Goal Test if the goal is stored **/
@@ -344,13 +351,13 @@ private:
 	void GetCorners(int x, int y, Graphics::point &p1, Graphics::point &p2, Graphics::point &p3) const;
 	bool GetBorder(int x, int y, int xoff, int yoff, Graphics::point &p1, Graphics::point &p2) const;
 	bool Valid(int x, int y) const;
-	std::vector<rgbColor> pieceColors;
-	std::vector<int> pieces;
-	std::array<tFlipType, numPieces> flippable;
+	vector<rgbColor> pieceColors;
+	vector<int> pieces;
+	array<tFlipType, numPieces> flippable;
 	Hexagon hex;
     int rotate30Map[numPieces][192];//14*6*2+1];
 	int flipMap[numPieces][192];//[14*6*2+1];
-    std::mutex patternLock;
+    mutex patternLock;
 };
 
 #endif /* Hexagon_h */

@@ -22,18 +22,21 @@
 //#include "matplotlibcpp.h"
 //namespace plt = matplotlibcpp;
 
-int cutoff = INT_MAX, maxPuzzlesPerCat = 100;//673;//INT_MAX
-bool recording = false, svg = true, dotted = true;
+using namespace std;
+
+int cutoff = INT_MAX, maxPuzzlesPerCat = 3000, addedPieces = 2;//673;//INT_MAX
+bool recording = false, svg = true, dotted = true, doColorSets = true, practiceMode = false;//true
 bool saveAndExit = false;
-std::string filename, outputFile;
+string filename, outputFile;
 Hexagon h;
 HexagonState hs;
-std::vector<HexagonSearchState> goals;
+vector<HexagonSearchState> goals;
 
-std::vector<std::vector<HexagonAction>> acts;
+vector<vector<HexagonAction>> acts;
 HexagonSearchState hss, init;
 HexagonEnvironment he;
 int currDepth = 0;
+long expansionsGlob = 0;//, generetions = 0, leaves = 0;
 
 int main(int argc, char* argv[])
 {
@@ -67,7 +70,7 @@ void InstallHandlers()
     InstallCommandLineHandler(MyCLHandler, "-comparePuzzles", "-comparePuzzles <directory>", "Load all files from directory and compare them to generated goals.");
 	InstallCommandLineHandler(MyCLHandler, "-svg", "-svg <file>", "Write SVG to file. Also requires that a file is loaded.");
 
-	InstallWindowHandler(MyWindowHandler);
+//	InstallWindowHandler(MyWindowHandler);
 //	InstallMouseClickHandler(MyClickHandler);
 }
 
@@ -137,9 +140,9 @@ bool AddGoal(HexagonSearchState s)
 //
 //        Graphics::Display d;
 //
-//        std::string fileName = "/Users/yazeedsabil/Desktop/svgs2/" + std::to_string(y+1) + ".svg";
+//        string fileName = "/Users/yazeedsabil/Desktop/svgs2/" + to_string(y+1) + ".svg";
 //
-//    //    std::cout << fileName;
+//    //    cout << fileName;
 //
 //        he.ConvertToHexagonState(tmp, hs);
 //        h.Draw(d);
@@ -158,7 +161,7 @@ bool AddGoal(HexagonSearchState s)
         {
             if (s == tmp)
             {
-//                std::cout << "DUP " << y << "\n";
+//                cout << "DUP " << y << "\n";
                 return false;
             }
             he.RotateCW(tmp);
@@ -168,7 +171,7 @@ bool AddGoal(HexagonSearchState s)
         {
             if (s == tmp)
             {
-//                std::cout << "DUPF" << x << "\n";
+//                cout << "DUPF" << x << "\n";
                 return false;
             }
             he.RotateCW(tmp);
@@ -180,18 +183,18 @@ bool AddGoal(HexagonSearchState s)
     he.BuildAdjacencies(s);
     
 //    for (int r = 0; r < 10; r++) {
-//        std::cout << s.state[0].piece << " " << s.state[r].piece << " | " << s.edgeAdjacencies[r] << " " << s.cornerAdjacencies[r] << "\n";
+//        cout << s.state[0].piece << " " << s.state[r].piece << " | " << s.edgeAdjacencies[r] << " " << s.cornerAdjacencies[r] << "\n";
 //    }
     
     goals.push_back(s);
     
-//    std::cout << "Generating SVG..";
+//    cout << "Generating SVG..";
 //    
 //    Graphics::Display d;
 //    
-//    std::string fileName = "/Users/yazeedsabil/Desktop/svgs_clean/" + std::to_string(goals.size()) + ".svg";
+//    string fileName = "/Users/yazeedsabil/Desktop/svgs_clean/" + to_string(goals.size()) + ".svg";
 //    
-////    std::cout << fileName;
+////    cout << fileName;
 //    
 //    he.ConvertToHexagonState(s, hs);
 //    h.Draw(d);
@@ -203,7 +206,7 @@ bool AddGoal(HexagonSearchState s)
 
 void CheckDuplicateGoals()
 {
-    std::cout << "Running duplicate analysis..\n";
+    cout << "Running duplicate analysis..\n";
 
     bool dup = false;
     
@@ -220,7 +223,7 @@ void CheckDuplicateGoals()
             {
                 if (s == tmp)
                 {
-                    std::cout << "Duplicate caught:" << x << "," << y << "," << k << "\n";
+                    cout << "Duplicate caught:" << x << "," << y << "," << k << "\n";
                     dup = true;
                 }
                 he.RotateCW(tmp);
@@ -230,7 +233,7 @@ void CheckDuplicateGoals()
             {
                 if (s == tmp)
                 {
-                    std::cout << "Duplicate caught F:" << x << "," << y << "," << k << "\n";
+                    cout << "Duplicate caught F:" << x << "," << y << "," << k << "\n";
                     dup = true;
                 }
                 he.RotateCW(tmp);
@@ -238,7 +241,7 @@ void CheckDuplicateGoals()
         }
     }
     
-    if(!dup) std::cout << "No duplicates found\n";
+    if(!dup) cout << "No duplicates found\n";
 }
 
 int MyCLHandler(char *argument[], int maxNumArgs)
@@ -267,11 +270,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
     {
         if (maxNumArgs > 1)
         {
-//            std::array<std::array<uint64_t, numPieces>, (14*6*2+1)> locationsNew = he.GetLocationTable();
-            std::vector<HexagonState> fileGoals, notFoundFiles;
-            std::vector<int> matchedGoals;
+//            array<array<uint64_t, numPieces>, (14*6*2+1)> locationsNew = he.GetLocationTable();
+            vector<HexagonState> fileGoals, notFoundFiles;
+            vector<int> matchedGoals;
 
-            std::array<tFlipType, numPieces> toFlip;
+            array<tFlipType, numPieces> toFlip;
             for (int x = 0; x < numPieces; x++) toFlip[x] = kHoles;
             he.SetFlippable(toFlip);
 
@@ -285,8 +288,8 @@ int MyCLHandler(char *argument[], int maxNumArgs)
             acts.resize(1);
             he.GetActions(hss, acts[0]);
             currDepth = 0;
-            Timer t;
-            t.StartTimer();
+//            Timer t;
+//            t.StartTimer();
             while (true)
             {
                 if (acts[currDepth].size() > 0)
@@ -303,7 +306,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
                     acts[currDepth].pop_back();
                 }
                 else {
-                    t.EndTimer();
+//                    t.EndTimer();
                     printf("& %lu & %d & %1.2f \\\\\n", goals.size(), totalGoals, totalExpansions/1000000.0);
                     //printf("%1.2f elapsed\n", t.GetElapsedTime());
                     break;
@@ -321,7 +324,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 
 //            while (true)
 //            {
-//                std::cout << currDepth << "\n";
+//                cout << currDepth << "\n";
 //                if (acts[currDepth].size() > 0)
 //                {
 //                    he.ApplyAction(hss, acts[currDepth].back());
@@ -342,14 +345,14 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 //                }
 //            }
 //
-//            namespace fs = std::__fs::filesystem;
+//            namespace fs = __fs::filesystem;
 //
 //            const fs::path pathToShow{ argument[1] };
 //
 //            for (const auto& entry : fs::directory_iterator(pathToShow)) {
 //                const auto filenameStr = entry.path().filename().string();
 //                if (entry.is_regular_file()) {
-//                    if(filenameStr.find(".txt") != std::string::npos)
+//                    if(filenameStr.find(".txt") != string::npos)
 //                    {
 //                        h.LoadSolution(entry.path().string().c_str(), hs);
 //                        fileGoals.push_back(hs);
@@ -383,11 +386,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 //                    if(found)
 //                    {
 //                        matchedGoals.push_back(idx2);
-////                        std::cout << "N goal: " << idx2 << "\n";
+////                        cout << "N goal: " << idx2 << "\n";
 //                        break;
 //                    }
 ////                    else{
-////                        std::cout << "N miss: " << idx2 << "\n";
+////                        cout << "N miss: " << idx2 << "\n";
 ////                    }
 //
 //                    he.Flip(tmp);
@@ -408,11 +411,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 //                    if(found)
 //                    {
 //                        matchedGoals.push_back(idx2);
-////                        std::cout << "F goal: " << idx2 << "\n";
+////                        cout << "F goal: " << idx2 << "\n";
 //                        break;
 //                    }
 ////                    else{
-////                        std::cout << "N miss: " << idx2 << "\n";
+////                        cout << "N miss: " << idx2 << "\n";
 ////                    }
 //
 //                    idx2++;
@@ -427,20 +430,20 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 //
 //            printf("Found goals: %lu | File goals: %lu | Not found file goals: %lu\n", goals.size(), fileGoals.size(), notFoundFiles.size());
 //
-//            std::cout << "matched " << matchedGoals.size() << "\n";
+//            cout << "matched " << matchedGoals.size() << "\n";
 //
 ////            for(auto i : matchedGoals)
-////                std::cout << "" << i << "\n";//
+////                cout << "" << i << "\n";//
 ////            int j = 0;
 //            for(int i = 0; i < goals.size(); i++)
 //            {
-//                if(std::count(matchedGoals.begin(), matchedGoals.end(), i)){
-////                    std::cout << "missed " << i << "\n";
+//                if(count(matchedGoals.begin(), matchedGoals.end(), i)){
+////                    cout << "missed " << i << "\n";
 //                }else{
-//                    std::cout << "Goal #" << i << "\n\n";
+//                    cout << "Goal #" << i << "\n\n";
 //
 //                    he.ConvertToHexagonState(goals[i], hs);
-//                    std::cout << he.PrintHexagonState(hs)<<"\n\n----------------\n\n";
+//                    cout << he.PrintHexagonState(hs)<<"\n\n----------------\n\n";
 //
 //
 //                }
@@ -498,17 +501,25 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 uint64_t oddDots = he.BitsFromArray({1,3,5,8,10,12,14,17,19,21,23,25,27,29,31,33,35,37,38,40,42,44,46,47,49,51,53});
 //uint64_t oddDots = he.BitsFromArray({1,3,5,7,8,10,12,14,16,17,19,21,23,25,27,29,31,33,35,37,40,42,44,46,49,51,53});
 
+
 void GetAllSolutions()
 {
-    std::array<tFlipType, numPieces> toFlip;
+    array<tFlipType, numPieces> toFlip;
     for (int x = 0; x < numPieces; x++)
         toFlip[x] = kHoles;
     he.SetFlippable(toFlip);
     
-    const std::vector<tPieceName> allPieces =
+    const vector<tPieceName> allPieces =
     {kLine, kMountains, kWrench, kTriangle, kHook, kSnake, kHexagon, kElbow, kButterfly, kTrapezoid, kTrapezoid};
+    
 
-    std::vector<tPieceName> pieces;
+    vector<tPieceName> pieces =
+    {kLine, kMountains, kWrench, kTriangle, kHook, kHexagon, kElbow, kTrapezoid, kTrapezoid, kTrapezoid, kTrapezoid};
+    
+    he.SetPieces(pieces);
+    MyDisplayHandler(0, kNoModifier, 'a');
+    
+    return;
 
     for (int x = 0; x < allPieces.size() - 1; x++)//allPieces.size() - 1
     {
@@ -516,11 +527,14 @@ void GetAllSolutions()
 
         forbiddenPiece = pieces[x];
         
-        printf("%s%s ", pieceNames[allPieces[x]].c_str(), (toFlip[x]==kSide1)?"1":(toFlip[x]==kSide2)?"2":"");
+//        printf("%s%s ", pieceNames[allPieces[x]].c_str(), (toFlip[x]==kSide1)?"1":(toFlip[x]==kSide2)?"2":"");
         pieces.erase(pieces.begin()+x);
         he.SetPieces(pieces);
+        int oldCount = goals.size();
         MyDisplayHandler(0, kNoModifier, 'a');
         
+        printf("%s: %d ", pieceNames[allPieces[x]].c_str(), goals.size() - oldCount);
+
         if(goals.size() >= cutoff)
             break;
     }
@@ -539,40 +553,49 @@ void GetAllSolutions()
 
 void ConstraintSpaceSearch()
 {
+    
+//    return;
+    Timer t;
+    t.StartTimer();
     GetAllSolutions();
-    he.ConstraintSpaceSearch(goals);
+    t.EndTimer();
+    cout<< "elapsed: " << t.GetElapsedTime() << " expansions: " << expansionsGlob << "\n";
+//    he.ConstraintSpaceSearch(goals);
+
 }
     
 void PerformFullAnalysis()
 {
     GetAllSolutions();
     
-    std::vector<std::vector<HexagonSearchState>> selectedSolutions(6);
+    vector<vector<HexagonSearchState>> selectedSolutions(6);
     
-    he.FullAnalysis(goals, selectedSolutions);
+    int categories = doColorSets ? 6 : 1;
+
+    he.FullAnalysis(goals, selectedSolutions, categories);
     
-    std::cout << "\n------------------------------------------------------\n";
-    std::cout << "Generating full solution SVGs...";
-    std::cout << "\n------------------------------------------------------\n";
+    cout << "\n------------------------------------------------------\n";
+    cout << "Generating full solution SVGs...";
+    cout << "\n------------------------------------------------------\n";
     
     mkdir("/Users/yazeedsabil/Desktop/Temp/gen_puzzles/", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
     
-    for (int i = 0; i < 6; i++) {
-        mkdir(("/Users/yazeedsabil/Desktop/Temp/gen_puzzles/"+std::to_string(i)).c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    for (int i = 0; i < categories; i++) {
+        mkdir(("/Users/yazeedsabil/Desktop/Temp/gen_puzzles/"+to_string(i)).c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
         
-        std::vector<int> solCounts(goals.size());
+        vector<int> solCounts(goals.size());
         
         for (int j = 0; j < min(selectedSolutions[i].size(), maxPuzzlesPerCat); j++)
         {
             Graphics::Display d;
         
-            std::string fileName = "/Users/yazeedsabil/Desktop/Temp/gen_puzzles/"+ std::to_string(i) +"/" + std::to_string(selectedSolutions[i][j].index) + "-" + std::to_string(solCounts[selectedSolutions[i][j].index])+ ".svg";
+            string fileName = "/Users/yazeedsabil/Desktop/Temp/gen_puzzles/"+ to_string(i) +"/" + to_string(selectedSolutions[i][j].index) + "-" + to_string(solCounts[selectedSolutions[i][j].index])+ ".svg";
             
-//            if(i==5) std::cout << "idx: " <<selectedSolutions[i][j].index << " constraint: " << selectedSolutions[i][j].constraints[0] << "\n";
+//            if(i==5) cout << "idx: " <<selectedSolutions[i][j].index << " constraint: " << selectedSolutions[i][j].constraints[0] << "\n";
         
             solCounts[selectedSolutions[i][j].index]++;
                     
-            he.ConvertToHexagonState(selectedSolutions[i][j], hs);
+            he.ConvertToHexagonState(selectedSolutions[i][j], hs, true);
             
             hs.forbiddenPiece = selectedSolutions[i][j].forbiddenPiece;
             
@@ -585,73 +608,60 @@ void PerformFullAnalysis()
     }
     
     
-    std::cout << "\n------------------------------------------------------\n";
-    std::cout << "Finished generating solution SVGs";
-    std::cout << "\n------------------------------------------------------\n";
+    cout << "\n------------------------------------------------------\n";
+    cout << "Finished generating solution SVGs";
+    cout << "\n------------------------------------------------------\n";
     
-    
-    std::cout << "\n------------------------------------------------------\n";
-    std::cout << "Calculating entropies...";
-    std::cout << "\n------------------------------------------------------\n";
-    
-    for (int i = 0; i < 6; i++)
+    if(!practiceMode)
     {
-        std::cout << "\nAnalyzing group: " << i << " ("<< selectedSolutions[i].size() << " items)\n";
-        for (int j = 0; j < min(selectedSolutions[i].size(), maxPuzzlesPerCat); j++)
+        cout << "\n------------------------------------------------------\n";
+        cout << "Calculating entropies...";
+        cout << "\n------------------------------------------------------\n";
+        
+        for (int i = 0; i < categories; i++)
         {
-//            printf("\r%d", j);
-//            std::cout << "\r" << std::to_string(j);
-            
-//            std::cout << "\r" << (j+1) << "/" << selectedSolutions[i].size() << std::flush;
-            
-//            static const std::string sequence = "|/-\\";
-//            auto duration = 5;
-//            auto duration_step = 250000;
-            
-//            for (auto i = 0; i < (duration/duration_step); ++i)
-//            {
-//              std::cout << "\r" << sequence[i%sequence.size()] << std::flush;
-//              std::this_thread::sleep_for(duration_step);
-//            }
-
-            std::vector<tPieceName> pcs;
-            for (int r = 0; r < selectedSolutions[i][j].cnt; r++)
+            cout << "\nAnalyzing group: " << i << " ("<< selectedSolutions[i].size() << " items)\n";
+            for (int j = 0; j < min(selectedSolutions[i].size(), maxPuzzlesPerCat); j++)
             {
-                tPieceName x = static_cast<tPieceName>(selectedSolutions[i][j].state[r].piece);
-                pcs.push_back(x);
+                vector<tPieceName> pcs;
+                for (int r = 0; r < selectedSolutions[i][j].cnt; r++)
+                {
+                    tPieceName x = static_cast<tPieceName>(selectedSolutions[i][j].state[r].piece);
+                    pcs.push_back(x);
+                }
+                
+                he.SetPieces(pcs);
+                
+                init = he.GetInitState(selectedSolutions[i][j]);
+                selectedSolutions[i][j].entropy = selectedSolutions[i][j].entropyWithAddedPieces = he.GetEntropy(init);
+                //            cout << "Entropy [" << selectedSolutions[i][j].index << "] = " << hss.entropy << "\n";
             }
-            
-            he.SetPieces(pcs);
-            
-            init = he.GetInitState(selectedSolutions[i][j]);
-            selectedSolutions[i][j].entropy = he.GetEntropy(init);
-//            std::cout << "Entropy [" << selectedSolutions[i][j].index << "] = " << hss.entropy << "\n";
         }
+        
+        cout << "\n------------------------------------------------------\n";
+        cout << "Finished calculating entropies";
+        cout << "\n------------------------------------------------------\n";
     }
     
-    std::cout << "\n------------------------------------------------------\n";
-    std::cout << "Finished calculating entropies";
-    std::cout << "\n------------------------------------------------------\n";
-    
-    std::cout << "\n------------------------------------------------------\n";
-    std::cout << "Generating inital state SVGs...";
-    std::cout << "\n------------------------------------------------------\n";
+    cout << "\n------------------------------------------------------\n";
+    cout << "Generating inital state SVGs...";
+    cout << "\n------------------------------------------------------\n";
     
     mkdir("/Users/yazeedsabil/Desktop/Temp/gen_puzzles_init/", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 
-    for (int i = 0; i < 6; i++) {
-        mkdir(("/Users/yazeedsabil/Desktop/Temp/gen_puzzles_init/" + std::to_string(i)).c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-        std::vector<int> solCounts(goals.size());
+    for (int i = 0; i < categories; i++) {
+        mkdir(("/Users/yazeedsabil/Desktop/Temp/gen_puzzles_init/" + to_string(i)).c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+        vector<int> solCounts(goals.size());
         for (int j = 0; j < min(selectedSolutions[i].size(), maxPuzzlesPerCat); j++) {
             Graphics::Display d;
         
-            std::string fileName = "/Users/yazeedsabil/Desktop/Temp/gen_puzzles_init/" + std::to_string(i) + "/" + std::to_string(selectedSolutions[i][j].entropy) + "-" + std::to_string(selectedSolutions[i][j].index) + "-" + std::to_string(solCounts[selectedSolutions[i][j].index]) + ".svg";
+            string fileName = "/Users/yazeedsabil/Desktop/Temp/gen_puzzles_init/" + to_string(i) + "/" + to_string(selectedSolutions[i][j].entropy) + "-" + to_string(selectedSolutions[i][j].index) + "-" + to_string(solCounts[selectedSolutions[i][j].index]) + ".svg";
         
             solCounts[selectedSolutions[i][j].index]++;
             
 //            selectedSolutions[i][j].dots = i == 0 ? 0 : oddDots;
                     
-            he.ConvertToHexagonState(selectedSolutions[i][j], hs, selectedSolutions[i][j].initState);
+            he.ConvertToHexagonState(selectedSolutions[i][j], hs);
             
             hs.forbiddenPiece = selectedSolutions[i][j].forbiddenPiece;
             hs.entropy = selectedSolutions[i][j].entropy;
@@ -664,19 +674,141 @@ void PerformFullAnalysis()
         }
     }
     
-    std::cout << "\n------------------------------------------------------\n";
-    std::cout << "Finished generating inital state SVGs";
-    std::cout << "\n------------------------------------------------------\n";
+    cout << "\n------------------------------------------------------\n";
+    cout << "Finished generating inital state SVGs";
+    cout << "\n------------------------------------------------------\n";
+    
+    if(practiceMode)
+    {
+        cout << "\n------------------------------------------------------\n";
+        cout << "Generating easier init state SVGs...";
+        cout << "\n------------------------------------------------------\n";
+        
+        mkdir("/Users/yazeedsabil/Desktop/Temp/gen_puzzles_init_modified/", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+        
+        for (int i = 0; i < categories; i++) {
+            mkdir(("/Users/yazeedsabil/Desktop/Temp/gen_puzzles_init_modified/" + to_string(i)).c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+            vector<int> solCounts(goals.size());
+            int easier = 0;
+            //        for(int easier = 0; easier < 2; easier++)
+            for (int j = 0; j < min(selectedSolutions[i].size(), maxPuzzlesPerCat); j++) {
+                Graphics::Display d;
+                
+                vector<tPieceName> pcs;
+                for (int r = 0; r < selectedSolutions[i][j].cnt; r++)
+                {
+                    tPieceName x = static_cast<tPieceName>(selectedSolutions[i][j].state[r].piece);
+                    pcs.push_back(x);
+                }
+                
+                he.SetPieces(pcs);
+                
+                
+                solCounts[selectedSolutions[i][j].index]++;
+                
+                //            selectedSolutions[i][j].dots = i == 0 ? 0 : oddDots;
+                
+                he.AddPiecesToInitState(selectedSolutions[i][j], addedPieces, easier == 1);
+                
+                he.ConvertToHexagonState(selectedSolutions[i][j], hs);
+                
+                init = he.GetInitState(selectedSolutions[i][j], &selectedSolutions[i][j].addedInitPieces);
+                selectedSolutions[i][j].entropyWithAddedPieces = he.GetEntropy(init, 0);
+                
+                hs.forbiddenPiece = selectedSolutions[i][j].forbiddenPiece;
+                hs.entropy = selectedSolutions[i][j].entropyWithAddedPieces;
+                
+                h.Draw(d);
+                h.Draw(d, hs);
+                
+                //            hss.addedInitPieces.clear();
+                
+                string fileName = "/Users/yazeedsabil/Desktop/Temp/gen_puzzles_init_modified/" + to_string(i) + "/" + to_string(selectedSolutions[i][j].entropyWithAddedPieces) + "-" + to_string(selectedSolutions[i][j].index) + "-" + to_string(solCounts[selectedSolutions[i][j].index]) + (easier == 0 ? " - HARDER - " : " - EASIER - ") + ".svg";
+                
+                
+                if(svg)
+                    MakeSVG(d, fileName.c_str(), 1024, 1024);
+            }
+        }
+        
+        cout << "\n------------------------------------------------------\n";
+        cout << "Finished generating modified inital state SVGs";
+        cout << "\n------------------------------------------------------\n";
+        
+        cout << "\n------------------------------------------------------\n";
+        cout << "Generating entropy inital state SVGs...";
+        cout << "\n------------------------------------------------------\n";
+        
+        //    mkdir("/Users/yazeedsabil/Desktop/Temp/gen_puzzles_entropy/", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+        
+        //    short mode = 0b1;
+        for(short mode : {0b1, 0b10, 0b100})// = 1; mode < 7; mode++)
+        {
+            mkdir(("/Users/yazeedsabil/Desktop/Temp/gen_puzzles_entropy_" + to_string(mode)).c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+            
+            for (int i = 0; i < categories; i++)
+            {
+                mkdir(("/Users/yazeedsabil/Desktop/Temp/gen_puzzles_entropy_" + to_string(mode) + "/" + to_string(i)).c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+                vector<int> solCounts(goals.size());
+                for (int j = 0; j < min(selectedSolutions[i].size(), maxPuzzlesPerCat); j++) {
+                    Graphics::Display d;
+                    
+                    vector<tPieceName> pcs;
+                    for (int r = 0; r < selectedSolutions[i][j].cnt; r++)
+                    {
+                        tPieceName x = static_cast<tPieceName>(selectedSolutions[i][j].state[r].piece);
+                        pcs.push_back(x);
+                    }
+                    
+                    he.SetPieces(pcs);
+                    
+                    init = he.GetInitState(selectedSolutions[i][j], &selectedSolutions[i][j].addedInitPieces);
+                    
+                    float newEntropy = he.GetEntropy(init, mode);
+                    float entropyDiff = selectedSolutions[i][j].entropyWithAddedPieces - newEntropy;
+                    
+                    //                if(entropyDiff < 0)
+                    //                {
+                    //                    cout << "DIFF: " << he.GetEntropy(init, 0) << " => " << he.GetEntropy(init, mode) << "\n";
+                    //                }
+                    
+                    string fileName = "/Users/yazeedsabil/Desktop/Temp/gen_puzzles_entropy_" + to_string(mode) + "/" + to_string(i) + "/" + to_string(entropyDiff) + "-" + to_string(selectedSolutions[i][j].index) + "-" + to_string(solCounts[selectedSolutions[i][j].index]) + ".svg";
+                    
+                    solCounts[selectedSolutions[i][j].index]++;
+                    
+                    //            selectedSolutions[i][j].dots = i == 0 ? 0 : oddDots;
+                    
+                    he.ConvertToHexagonState(selectedSolutions[i][j], hs);
+                    
+                    hs.forbiddenPiece = selectedSolutions[i][j].forbiddenPiece;
+                    hs.entropy = newEntropy;
+                    
+                    h.Draw(d);
+                    h.Draw(d, hs);
+                    
+                    if(svg)
+                        MakeSVG(d, fileName.c_str(), 1024, 1024);
+                }
+            }
+        }
+        cout << "\n------------------------------------------------------\n";
+        cout << "Finished entropy inital state SVGs";
+        cout << "\n------------------------------------------------------\n";
+    }
+    
+    cout << "\n------------------------------------------------------\n";
+    cout << "END OF PROGRAM";
+    cout << "\n------------------------------------------------------\n";
     
     return;
 //
-//    std::cout<<"HERE " << selectedSolutions[5].size() << "\n";
-//    std::vector<int> solCounts(goals.size());
+//    cout<<"HERE " << selectedSolutions[5].size() << "\n";
+//    vector<int> solCounts(goals.size());
 //
 //    for (int j = 0; j < selectedSolutions[5].size(); j++)
 //    {
 //        HexagonSearchState g = selectedSolutions[5][j];
-//        std::cout<< g.index << " " << g.allConstraints.size() << "\n";
+//        cout<< g.index << " " << g.allConstraints.size() << "\n";
 //        for(int c1 = 0; c1 < g.allConstraints.size() - 1; c1++)
 //        {
 //            for(int c2 = c1+1; c2 < g.allConstraints.size(); c2++)
@@ -695,7 +827,7 @@ void PerformFullAnalysis()
 //
 //                Graphics::Display d;
 //
-//                std::string fileName = "/Users/yazeedsabil/Desktop/gen_puzzles/5/" + std::to_string(newGoal.index) + "-" + std::to_string(solCounts[newGoal.index])+ ".svg";
+//                string fileName = "/Users/yazeedsabil/Desktop/gen_puzzles/5/" + to_string(newGoal.index) + "-" + to_string(solCounts[newGoal.index])+ ".svg";
 //
 //                solCounts[newGoal.index]++;
 //
@@ -708,12 +840,12 @@ void PerformFullAnalysis()
 //        }
 //    }
 //
-//    solCounts = std::vector<int>(goals.size());
+//    solCounts = vector<int>(goals.size());
 //
 //    for (int j = 0; j < selectedSolutions[5].size(); j++)
 //    {
 //        HexagonSearchState g = selectedSolutions[5][j];
-//        std::cout<< g.index << " " << g.allConstraints.size() << "\n";
+//        cout<< g.index << " " << g.allConstraints.size() << "\n";
 //        for(int c1 = 0; c1 < g.allConstraints.size() - 1; c1++)
 //        {
 //            for(int c2 = c1+1; c2 < g.allConstraints.size(); c2++)
@@ -732,7 +864,7 @@ void PerformFullAnalysis()
 //
 //                Graphics::Display d;
 //
-//                std::string fileName = "/Users/yazeedsabil/Desktop/gen_puzzles_init/5/" + std::to_string(newGoal.index) + "-" + std::to_string(solCounts[newGoal.index])+ ".svg";
+//                string fileName = "/Users/yazeedsabil/Desktop/gen_puzzles_init/5/" + to_string(newGoal.index) + "-" + to_string(solCounts[newGoal.index])+ ".svg";
 //
 //                solCounts[newGoal.index]++;
 //
@@ -757,7 +889,7 @@ void AnalyzeWhichPiecesToFlip()
 		c.Unrank(i/8, items, 3);
 
 		// Clear and then set the items
-		std::array<tFlipType, numPieces> toFlip;
+		array<tFlipType, numPieces> toFlip;
 		for (int x = 0; x < numPieces; x++)
 			toFlip[x] = kHoles;
 		for (int x = 0; x < 3; x++)
@@ -775,9 +907,9 @@ void AnalyzeWhichPiecesToFlip()
 		}
 		he.SetFlippable(toFlip);
 
-		const std::vector<tPieceName> allPieces =
+		const vector<tPieceName> allPieces =
 		{kLine, kMountains, kWrench, kTriangle, kHook, kSnake, kHexagon, kElbow, kButterfly, kTrapezoid, kTrapezoid};
-		std::vector<tPieceName> pieces;
+		vector<tPieceName> pieces;
 
 		printf("\n---- %s%s, %s%s, %s%s ----\n",
 			   pieceNames[allPieces[items[0]]].c_str(), (toFlip[items[0]]==kSide1)?"1":(toFlip[items[0]]==kSide2)?"2":"",
@@ -854,7 +986,7 @@ void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
 					{
                         he.ConvertToHexagonState(hss, hs);
 						totalGoals++;
-						printf("%d total goals\n", totalGoals);
+//						printf("%d total goals\n", totalGoals);
 						break;
 					}
 				}
@@ -874,22 +1006,22 @@ void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
             break;
 		case '=':
 		{
-            std::cout<<"\n\nGENERATING PIECE COORDS..\n\n";
+            cout<<"\n\nGENERATING PIECE COORDS..\n\n";
 			for (int x = 0; x < numPieces; x++)
 			{
 				he.GeneratePieceCoordinates((tPieceName)x);
 			}
-            std::cout<<"\n\nDONE GENERATING PIECE COORDS\n\n";
-            std::cout<<"\n\GENERATING BOARD COORDS...\n\n";
+            cout<<"\n\nDONE GENERATING PIECE COORDS\n\n";
+            cout<<"\n\GENERATING BOARD COORDS...\n\n";
 			he.GenerateBoardBorder();
-            std::cout<<"\n\DONE GENERATING BOARD COORDS\n\n";
+            cout<<"\n\DONE GENERATING BOARD COORDS\n\n";
 
 			break;
 		}
 //		{
-//			const std::vector<tPieceName> allPieces =
+//			const vector<tPieceName> allPieces =
 //			{kHexagon, kElbow, kLine, kMountains, kWrench, kTriangle, kHook, kSnake, kButterfly, kTrapezoid, kTrapezoid};
-//			std::vector<tPieceName> pieces;
+//			vector<tPieceName> pieces;
 //			for (int x = 0; x < 9; x++)
 //			{
 //				pieces = allPieces;
@@ -925,15 +1057,13 @@ void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
             //1,3,5,7,8,10,12,14,16,17,19,21,23,25,27,29,31,33,35,37,40,42,44,46,49,51,53
             //0,2,4,6,7,9,11,13,15,16,18,20,22,24,26,28,30,32,34,36,39,41,43,45,48,50,52
             hss.dots = dotted ? oddDots : 0;
-            std::cout<< "Dots\n"<<std::bitset<54>(hss.dots)<<"\n\n";
+//            cout<< "Dots\n"<<bitset<54>(hss.dots)<<"\n\n";
 			acts.resize(1);
 			he.GetActions(hss, acts[0]);
 			currDepth = 0;
-			Timer t;
-			t.StartTimer();
             wasEqualSize = 0;
             
-//            std::cout << "Generating SVG2..";
+//            cout << "Generating all solutions.." << acts[0].size();
                         
 			while (true)
 			{
@@ -944,6 +1074,12 @@ void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
 					acts.resize(currDepth+1);
 					he.GetActions(hss, acts.back());
 					totalExpansions++;
+                    expansionsGlob++;
+//                    cout << currDepth << "\n";
+//                    if(currDepth == 10)
+//                    {
+//                        cout << "\n\n" << he.PrintBits(hss.bits) << "\n\n" << acts.back().size() << "\n";
+//                    }
 				}
 				else if (currDepth > 0 && goals.size() < cutoff)
                 {
@@ -952,20 +1088,21 @@ void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
 					acts[currDepth].pop_back();
 				}
 				else {
-					t.EndTimer();
+//					t.EndTimer();
 //                    CheckDuplicateGoals();
 
-					printf("& %lu & %d & %1.2f \\\\\n", goals.size(), totalGoals, totalExpansions/1000000.0);
+//					printf("& %lu & %d & %1.2f \\\\\n", goals.size(), totalGoals, totalExpansions/1000000.0);
 					//printf("%1.2f elapsed\n", t.GetElapsedTime());
 					break;
 				}
 				if (he.GoalTest(hss))
 				{
+                    cout << "okay goal found\n";
                     int sizeBefore = goals.size();
                     AddGoal(hss);
                     if(goals.size() == sizeBefore)
                     {
-                        if(wasEqualSize > 10)
+                        if(wasEqualSize > 2)
                             break;
                         else
                             wasEqualSize++;
@@ -973,11 +1110,12 @@ void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
                     else
                         wasEqualSize = 0;
                         
-                    std::cout << goals.size() << " total goals\n";
+                    cout << goals.size() << " total goals\n";
                     
 					totalGoals++;
 				}
 			}
+            break;
 		}
 		case ']':
 			if (acts[currDepth].size() > 0)

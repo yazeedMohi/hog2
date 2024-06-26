@@ -231,8 +231,8 @@ public:
 
     void AddPiecesToInitState(HexagonSearchState &hss, int pieces, bool chooseEasiest);
 
-    void ColorConstraintSpaceSearchParallelExperiment(vector<HexagonSearchState> &goals, vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int numColors, int threadNum, int totalThreads, vector<vector<HexagonSearchState>> &selectedSolutions);
-    
+    void GenerateColorRules(vector<HexagonSearchState> &goals, vector<double> &interestingPatterns, int THRESHOLD, uint64_t numPatterns, int numColors, int threadNum, int totalThreads, vector<vector<HexagonSearchState>> &selectedSolutions);
+    void GenerateInitialStates(int numColors, vector<vector<HexagonSearchState>> &selectedSolutions, int categories) const;
     // @param[in] nb_elements : size of your for loop
     /// @param[in] functor(start, end) :
     /// your function processing a sub chunk of the for loop.
@@ -316,7 +316,7 @@ public:
     int PieceCanOnlyGoInOnePlaceReqRule(const HexagonSearchState &s) const;
     
     uint64_t BitsFromArray(vector<int> a) const;
-    string PrintBits(uint64_t bits, uint64_t holes = 0) const;
+    string FancyPrintBoard(uint64_t bits, uint64_t holes = 0) const;
     void BuildLocationTable();//;int[] &bits, vector<int[]> &table)
     void BuildHolesTable();//;int[] &bits, vector<int[]> &table)
     void ConvertToSearchState();

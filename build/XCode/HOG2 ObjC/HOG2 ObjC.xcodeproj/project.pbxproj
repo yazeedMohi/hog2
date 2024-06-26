@@ -7,8 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		900A4E892AE0A21000AF037A /* supportLib.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 900A4E852AE0A21000AF037A /* supportLib.cpp */; };
-		900A4E8A2AE0A21000AF037A /* pbPlots.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 900A4E882AE0A21000AF037A /* pbPlots.cpp */; };
 		C403F68E27B37B96001C0043 /* Graphics.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C4A5504524AEFD6400E9FF7F /* Graphics.cpp */; };
 		C403F68F27B37B96001C0043 /* Reach.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C4A5507A24AEFD6500E9FF7F /* Reach.cpp */; };
 		C403F69027B37B96001C0043 /* CanonicalGraphEnvironment.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C4A5513024AEFD6600E9FF7F /* CanonicalGraphEnvironment.cpp */; };
@@ -723,10 +721,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		900A4E852AE0A21000AF037A /* supportLib.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = supportLib.cpp; path = ../../../Desktop/supportLib.cpp; sourceTree = "<group>"; };
-		900A4E862AE0A21000AF037A /* supportLib.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = supportLib.hpp; path = ../../../Desktop/supportLib.hpp; sourceTree = "<group>"; };
-		900A4E872AE0A21000AF037A /* pbPlots.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = pbPlots.hpp; path = ../../../Desktop/pbPlots.hpp; sourceTree = "<group>"; };
-		900A4E882AE0A21000AF037A /* pbPlots.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = pbPlots.cpp; path = ../../../Desktop/pbPlots.cpp; sourceTree = "<group>"; };
 		C403F70727B37B96001C0043 /* RC.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RC.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C403F70827B37B9F001C0043 /* Hexagon copy-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "Hexagon copy-Info.plist"; path = "/Users/nathanst/hog2/build/XCode/HOG2 ObjC/Hexagon copy-Info.plist"; sourceTree = "<absolute>"; };
 		C403F70D27B37CFA001C0043 /* Driver.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Driver.h; sourceTree = "<group>"; };
@@ -1525,10 +1519,6 @@
 		C4A5510424AEFD6600E9FF7F /* environments */ = {
 			isa = PBXGroup;
 			children = (
-				900A4E882AE0A21000AF037A /* pbPlots.cpp */,
-				900A4E872AE0A21000AF037A /* pbPlots.hpp */,
-				900A4E852AE0A21000AF037A /* supportLib.cpp */,
-				900A4E862AE0A21000AF037A /* supportLib.hpp */,
 				C4A5512424AEFD6600E9FF7F /* Airplane.cpp */,
 				C4A5511124AEFD6600E9FF7F /* Airplane.h */,
 				C4A5513724AEFD6600E9FF7F /* BurnedPancakePuzzle.cpp */,
@@ -2067,7 +2057,6 @@
 				C4045CF02740830900A8B6B5 /* BurnedPancakePuzzle.cpp in Sources */,
 				C4045CF12740830900A8B6B5 /* StatUtil.cpp in Sources */,
 				C4045CF22740830900A8B6B5 /* Trackball.cpp in Sources */,
-				900A4E892AE0A21000AF037A /* supportLib.cpp in Sources */,
 				C4045CF32740830900A8B6B5 /* Map3DGrid.cpp in Sources */,
 				C4045CF42740830900A8B6B5 /* SequenceAlignment.cpp in Sources */,
 				C4045CF52740830900A8B6B5 /* MR1Permutation.cpp in Sources */,
@@ -2151,7 +2140,6 @@
 				C4045D422740830900A8B6B5 /* EnvUtil.cpp in Sources */,
 				C4045D432740830900A8B6B5 /* FloydWarshall.cpp in Sources */,
 				C4045D442740830900A8B6B5 /* NBitArray.cpp in Sources */,
-				900A4E8A2AE0A21000AF037A /* pbPlots.cpp in Sources */,
 				C4045D452740830900A8B6B5 /* Map2DConstrainedEnvironment.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

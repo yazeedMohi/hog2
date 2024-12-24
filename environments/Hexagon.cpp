@@ -2375,10 +2375,17 @@ HexagonAction HexagonEnvironment::GetAction(const HexagonSearchState &s1, const 
 
 void HexagonEnvironment::ApplyAction(HexagonSearchState &s, HexagonAction a) const
 {
-	s.state[s.cnt] = a;
-	s.cnt++;
-	s.bits ^= locations[a.piece][a.location];
+    s.state[s.cnt] = a;
+    s.cnt++;
+    s.bits ^= locations[a.piece][a.location];
 }
+//
+//void HexagonEnvironment::ApplyAction(HexagonSearchState &s, int piece) const
+//{
+////    s.state[s.cnt] = a;
+//    s.cnt++;
+//    s.bits ^= locations[piece][0];
+//}
 
 void HexagonEnvironment::UndoAction(HexagonSearchState &s, HexagonAction a) const
 {
@@ -3313,6 +3320,7 @@ void HexagonEnvironment::DrawSetup(Graphics::Display &display) const
 
 void HexagonEnvironment::Draw(Graphics::Display &display, const HexagonSearchState &s) const
 {
+    return;
 	display.FillSquare({0,0}, 1.0, Colors::white);
 	for (int t = 0; t < 54; t++)
 	{
@@ -4756,6 +4764,7 @@ bool Hexagon::Valid(int x, int y) const
 
 void Hexagon::Draw(Graphics::Display &display) const
 {
+//    return;
 	// Draw board
 	display.FillRect(Graphics::rect({0,0}, 1.0), Colors::white);
 	for (int y = 0; y < 6; y++)
@@ -5001,35 +5010,44 @@ void Hexagon::Draw(Graphics::Display &display, const HexagonState &s) const
 	{
 		for (int x = 0; x < 11; x++)
 		{
-			if (!Valid(x, y))
-				//if (!valid[y][x])
-				continue;
+//			if (!Valid(x, y))
+//				//if (!valid[y][x])
+//				continue;
 			Graphics::point p1, p2, p3;
 			GetCorners(x, y, p1, p2, p3);
 			int piece = s.state.Get(y*11+x);
-
-			if ((x == 10) || (piece != s.state.Get(y*11+x+1)))
+            
+            if(piece == 15) continue;
+            
+            cout << piece << " " <<s.state.Get(y*11+x+1)<<"\n";
+            
+//            continue;
+            if ((x == 10) || (piece != s.state.Get(y*11+x+1)))
+//			if ((x < 10 && piece != s.state.Get(y*11+x+1)))// && (piece != 11 || s.state.Get(y*11+x+1) != 15)))
 			{
 				if (GetBorder(x, y, 1, 0, p1, p2))
 				{
 					display.DrawLine(p1, p2, 0.02, Colors::black);
 				}
 			}
-			if ((x == 0) || (x > 0 && piece != s.state.Get(y*11+x-1)))
+            if ((x == 0) || (x > 0 && piece != s.state.Get(y*11+x-1)))
+//			if ((x > 0 && piece != s.state.Get(y*11+x-1)))// && (piece != 11 || s.state.Get(y*11+x-1) != 15)))
 			{
 				if (GetBorder(x, y, -1, 0, p1, p2))
 				{
 					display.DrawLine(p1, p2, 0.02, Colors::black);
 				}
 			}
-			if ((y == 5) || (y < 5 && piece != s.state.Get((y+1)*11+x)))
+            if ((y == 5) || (y < 5 && piece != s.state.Get((y+1)*11+x)))
+//			if ((y < 5 && piece != s.state.Get((y+1)*11+x)))// && (piece != 11 || s.state.Get((y+1)*11+x) != 15)))
 			{
 				if (GetBorder(x, y, 0, 1, p1, p2))
 				{
 					display.DrawLine(p1, p2, 0.02, Colors::black);
 				}
 			}
-			if ((y == 0) || (y > 0 && piece != s.state.Get((y-1)*11+x)))
+            if ((y == 0) || (y > 0 && piece != s.state.Get((y-1)*11+x)))
+//			if ((y > 0 && piece != s.state.Get((y-1)*11+x)))// && (piece != 11 || s.state.Get((y-1)*11+x) != 15)))
 			{
 				if (GetBorder(x, y, 0, -1, p1, p2))
 				{
@@ -5039,14 +5057,10 @@ void Hexagon::Draw(Graphics::Display &display, const HexagonState &s) const
 		}
 	}
     
+    return;
+    
     float dim = 0.1;
     float xLoc = -1 + dim/2.0f, yLoc = -1 + dim/2.0f;
-    
-//    colors = rgbColor::hsl(convPiece < 2 ? 0 : ((convPiece == 3 || convPiece == 9) ? 0.2 : ((convPiece == 2 || convPiece == 8) ? 0.4 : ((convPiece == (pp1+4) || convPiece == (pp2+4)) ? 0.6 : 0.8))), 0.5, 0.5)
-//    cout << "NUM OF CONSTRAINTS " << s.constraints.size() << "\n";
-    
-    
-    
 
     for (auto con : s.constraints) {
         int constraintType = con % 5;

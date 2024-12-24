@@ -288,6 +288,7 @@ public:
     
 	HexagonAction GetAction(const HexagonSearchState &s1, const HexagonSearchState &s2) const;
 	void ApplyAction(HexagonSearchState &s, HexagonAction a) const;
+//    void ApplyAction(HexagonSearchState &s, int piece) const;
 	void UndoAction(HexagonSearchState &s, HexagonAction a) const;
     
     void BuildAdjacencies(HexagonSearchState &goal);

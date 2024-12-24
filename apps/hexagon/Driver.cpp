@@ -65,6 +65,7 @@ void InstallHandlers()
 	InstallKeyboardHandler(MyDisplayHandler, "Flip", "Flip Board", kAnyModifier, 'f');
 	InstallKeyboardHandler(MyDisplayHandler, "Rotate", "Rotate Board", kAnyModifier, 'r');
     InstallKeyboardHandler(MyDisplayHandler, "Analyze1", "Build curriculum", kAnyModifier, 'm');
+    InstallKeyboardHandler(MyDisplayHandler, "Pieces", "Generate piece SVGs", kAnyModifier, 'p');
     InstallKeyboardHandler(MyDisplayHandler, "Search", "Constraint space search", kAnyModifier, 'c');
 	InstallKeyboardHandler(MyDisplayHandler, "Analyze2", "Analyze which pieces to make unflippable", kAnyModifier, 'o');
 	InstallKeyboardHandler(MyDisplayHandler, "Get Coordinates", "Get baseline coordinates of all pieces", kAnyModifier, '=');
@@ -902,20 +903,50 @@ void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
         case 'c':
             ConstraintSpaceSearch();
             break;
-		case '=':
-		{
+        case '=':
+        {
             cout<<"\n\nGENERATING PIECE COORDS..\n\n";
-			for (int x = 0; x < numPieces; x++)
-			{
-				he.GeneratePieceCoordinates((tPieceName)x);
-			}
+            for (int x = 0; x < numPieces; x++)
+            {
+                he.GeneratePieceCoordinates((tPieceName)x);
+            }
             cout<<"\n\nDONE GENERATING PIECE COORDS\n\n";
             cout<<"\n\GENERATING BOARD COORDS...\n\n";
-			he.GenerateBoardBorder();
+            he.GenerateBoardBorder();
             cout<<"\n\DONE GENERATING BOARD COORDS\n\n";
 
-			break;
-		}
+            break;
+        }
+        case 'p':
+        {
+            uint32_t zero = 5;
+            for (uint32_t x = 0; x < numPieces; x++)
+            {
+                Graphics::Display d;
+            
+                string fileName = outputPath + "/" + to_string((tPieceName)x) + ".svg";
+                
+                HexagonSearchState s;
+                
+                s.bits = 0;
+                
+                const HexagonAction a = {x, zero};
+                
+//                he.ApplyAction(s, a);
+                
+                cout << "\n\n" << he.FancyPrintBoard(s.bits) << "\n\n";
+                        
+                he.ConvertToHexagonState(s, hs, true);
+                                
+                h.Draw(d);
+                h.Draw(d, hs);
+                
+                MakeSVG(d, fileName.c_str(), 1024, 1024);
+            }
+            cout<<"\n\GENERATED PIECE SVGS\n\n";
+
+            break;
+        }
 //		{
 //			const vector<tPieceName> allPieces =
 //			{kHexagon, kElbow, kLine, kMountains, kWrench, kTriangle, kHook, kSnake, kButterfly, kTrapezoid, kTrapezoid};

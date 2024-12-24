@@ -1864,7 +1864,7 @@ void HexagonEnvironment::GenerateInitialStates(int numColors, vector<vector<Hexa
         for (int j = 0; j < selectedSolutions[i].size(); j++)
         {
 //            cout<<"analyzing init for: " << j << "\n";
-            for (int pattern = 0; pattern < 11 ^ 10; pattern ++)
+            for (int pattern = 0; pattern < pow(11, 10); pattern ++)
             {
 //                cout<<pattern<<"\n";
                 bool unique = true;

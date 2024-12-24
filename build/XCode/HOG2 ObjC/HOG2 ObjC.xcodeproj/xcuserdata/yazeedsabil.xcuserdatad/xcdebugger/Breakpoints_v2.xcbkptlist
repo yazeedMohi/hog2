@@ -18,38 +18,6 @@
             endingLineNumber = "2121"
             landmarkName = "HexagonEnvironment::FullAnalysis(goals, selectedSolutions, categories)"
             landmarkType = "7">
-            <Locations>
-               <Location
-                  uuid = "C5665900-391F-4D8F-91F3-A3EF81AA681C - 217209544ab1a534"
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "HexagonEnvironment::FullAnalysis(std::__1::vector&lt;HexagonSearchState, std::__1::allocator&lt;HexagonSearchState&gt; &gt;, std::__1::vector&lt;std::__1::vector&lt;HexagonSearchState, std::__1::allocator&lt;HexagonSearchState&gt; &gt;, std::__1::allocator&lt;std::__1::vector&lt;HexagonSearchState, std::__1::allocator&lt;HexagonSearchState&gt; &gt; &gt; &gt;&amp;)"
-                  moduleName = "Hexagon"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/yazeedsabil/Documents/hog2/environments/Hexagon.cpp"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "2370"
-                  endingLineNumber = "2370"
-                  offsetFromSymbolStart = "648">
-               </Location>
-               <Location
-                  uuid = "C5665900-391F-4D8F-91F3-A3EF81AA681C - 217209544ab1a2b8"
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "HexagonEnvironment::FullAnalysis(std::__1::vector&lt;HexagonSearchState, std::__1::allocator&lt;HexagonSearchState&gt; &gt;, std::__1::vector&lt;std::__1::vector&lt;HexagonSearchState, std::__1::allocator&lt;HexagonSearchState&gt; &gt;, std::__1::allocator&lt;std::__1::vector&lt;HexagonSearchState, std::__1::allocator&lt;HexagonSearchState&gt; &gt; &gt; &gt;&amp;)"
-                  moduleName = "Hexagon"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/yazeedsabil/Documents/hog2/environments/Hexagon.cpp"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "2374"
-                  endingLineNumber = "2374"
-                  offsetFromSymbolStart = "648">
-               </Location>
-            </Locations>
          </BreakpointContent>
       </BreakpointProxy>
    </Breakpoints>
